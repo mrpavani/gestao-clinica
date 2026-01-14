@@ -1,0 +1,7 @@
+/*return [
+    'db_host' => 'localhost',
+    'db_name' => 'clinic_db',
+    'db_user' => 'root',
+    'db_pass' => '', // Default for many local setups, user should change if needed
+    'db_charset' => 'utf8mb4'
+];*/
