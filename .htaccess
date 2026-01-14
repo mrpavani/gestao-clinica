@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # 1) Redirect all requests to the "public" folder
+    RewriteRule ^$ public/ [L]
+    
+    # 2) If the request is not a file/dir in root, route to public
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
