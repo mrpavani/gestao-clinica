@@ -2,19 +2,26 @@
 // index.php (Moved to root)
 // Simple router/dispatcher
 
-require_once __DIR__ . '/src/Database.php';
+// Error handling wrapper
+try {
+    // DEBUGGING ENABLED
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
 
-// Quick auto-loader if needed later, for now we will manually include or use spl_autoload
-spl_autoload_register(function ($class_name) {
-    if (file_exists(__DIR__ . '/src/Controllers/' . $class_name . '.php')) {
-        require_once __DIR__ . '/src/Controllers/' . $class_name . '.php';
-    } elseif (file_exists(__DIR__ . '/src/' . $class_name . '.php')) {
-        require_once __DIR__ . '/src/' . $class_name . '.php';
-    }
-});
+    require_once __DIR__ . '/src/Database.php';
 
-// Basic Routing
-$page = $_GET['page'] ?? 'dashboard';
+    // Quick auto-loader if needed later, for now we will manually include or use spl_autoload
+    spl_autoload_register(function ($class_name) {
+        if (file_exists(__DIR__ . '/src/Controllers/' . $class_name . '.php')) {
+            require_once __DIR__ . '/src/Controllers/' . $class_name . '.php';
+        } elseif (file_exists(__DIR__ . '/src/' . $class_name . '.php')) {
+            require_once __DIR__ . '/src/' . $class_name . '.php';
+        }
+    });
+
+    // Basic Routing
+    $page = $_GET['page'] ?? 'dashboard';
 
 ?>
 <!DOCTYPE html>
@@ -126,3 +133,15 @@ $page = $_GET['page'] ?? 'dashboard';
     </main>
 </body>
 </html>
+<?php
+} catch (Exception $e) {
+    // Display error in a user-friendly format
+    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Error</title></head><body>';
+    echo '<div style="font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; background: #fee; border: 2px solid #c33; border-radius: 8px;">';
+    echo '<h2 style="color: #c33;">⚠️ Erro na Aplicação</h2>';
+    echo '<p><strong>Mensagem:</strong> ' . htmlspecialchars($e->getMessage()) . '</p>';
+    echo '<p><strong>Arquivo:</strong> ' . htmlspecialchars($e->getFile()) . ':' . $e->getLine() . '</p>';
+    echo '<pre style="background: #fff; padding: 10px; border-radius: 4px; overflow-x: auto;">' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+    echo '</div></body></html>';
+}
+?>
