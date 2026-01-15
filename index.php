@@ -1,5 +1,5 @@
 <?php
-// index.php (Moved to root)
+// index.php (VERIFICATION_TAG_12345)
 // Simple router/dispatcher
 
 // Error handling wrapper
@@ -111,17 +111,17 @@ try {
             </li>
         </ul>
         
-        <!-- User Menu --><div class="user-menu">
+        <!-- User Menu --><div class="sidebar-footer-menu">
             <div class="user-info">
                 <i class="fa-solid fa-circle-user"></i>
                 <span><?= htmlspecialchars($currentUser['username'] ?? '') ?></span>
             </div>
             <?php if (AuthController::isAdmin()): ?>
-            <a href="?page=users" class="btn" style="font-size: 0.85rem; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem;">
+            <a href="?page=users" class="btn">
                 <i class="fa-solid fa-users-gear"></i> Gerenciar Usuários
             </a>
             <?php endif; ?>
-            <a href="?page=logout" class="btn" style="font-size: 0.85rem; padding: 0.5rem 0.75rem;">
+            <a href="?page=logout" class="btn">
                 <i class="fa-solid fa-right-from-bracket"></i> Sair
             </a>
         </div>

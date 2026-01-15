@@ -107,11 +107,14 @@ body {
     color: var(--primary-color);
 }
 
-/* User Menu */
-.user-menu {
-    margin-top: auto;
-    padding-top: 1.5rem;
-    border-top: 1px solid #E5E7EB;
+/* Sidebar Footer Menu */
+.sidebar-footer-menu {
+    margin-top: auto !important;
+    padding-top: 1.5rem !important;
+    border-top: 1px solid #E5E7EB !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
 }
 
 .user-info {
@@ -119,7 +122,7 @@ body {
     align-items: center;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     background-color: #F9FAFB;
     border-radius: var(--radius-md);
     font-weight: 500;
@@ -131,19 +134,29 @@ body {
     color: var(--primary-color);
 }
 
-.user-menu .btn {
-    width: 100%;
-    justify-content: flex-start;
-    background-color: transparent;
-    color: var(--text-secondary);
-    border: 1px solid #E5E7EB;
-    gap: 0.75rem;
+.sidebar-footer-menu .btn {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    background-color: transparent !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid #E5E7EB !important;
+    gap: 0.75rem !important;
+    text-decoration: none !important;
+    font-size: 0.85rem !important;
+    padding: 0.5rem 0.75rem !important;
+    margin: 0 !important;
+    display: inline-flex !important;
 }
 
-.user-menu .btn:hover {
-    background-color: #F9FAFB;
-    border-color: var(--primary-color);
-    color: var(--primary-color);
+.sidebar-footer-menu .btn:hover {
+    background-color: #F9FAFB !important;
+    border-color: var(--primary-color) !important;
+    color: var(--primary-color) !important;
+}
+
+/* Ensure icons inherit color */
+.sidebar-footer-menu .btn i {
+    color: inherit !important;
 }
 
 
