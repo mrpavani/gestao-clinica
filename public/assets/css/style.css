@@ -102,10 +102,49 @@ body {
 
 .nav-item a:hover,
 .nav-item a.active {
-    background-color: #EEF2FF;
-    /* Light indigo tint */
+    background-color: #E0F2FE;
+    /* Light teal tint matching new brand */
     color: var(--primary-color);
 }
+
+/* User Menu */
+.user-menu {
+    margin-top: auto;
+    padding-top: 1.5rem;
+    border-top: 1px solid #E5E7EB;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    background-color: #F9FAFB;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.user-info i {
+    font-size: 1.25rem;
+    color: var(--primary-color);
+}
+
+.user-menu .btn {
+    width: 100%;
+    justify-content: flex-start;
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid #E5E7EB;
+}
+
+.user-menu .btn:hover {
+    background-color: #F9FAFB;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
 
 /* Main Content */
 .main-content {
@@ -235,4 +274,95 @@ tr:last-child td {
 
 tr:hover td {
     background-color: #F9FAFB;
+}
+
+/* Weekly Calendar Grid */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.calendar-day {
+    background: var(--surface-color);
+    border: 1px solid #E5E7EB;
+    border-radius: var(--radius-md);
+    min-height: 200px;
+}
+
+.calendar-header {
+    background: #F9FAFB;
+    padding: 0.75rem;
+    border-bottom: 1px solid #E5E7EB;
+    text-align: center;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.calendar-body {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.appointment-card {
+    background: #F0F9FF;
+    border-left: 3px solid var(--primary-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.appointment-time {
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.25rem;
+}
+
+.appointment-info {
+    color: var(--text-primary);
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--surface-color);
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: var(--shadow-lg);
+}
+
+.modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
 }

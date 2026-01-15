@@ -9,7 +9,11 @@ try {
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
 
+    // Start session
+    session_start();
+    
     require_once __DIR__ . '/src/Database.php';
+    require_once __DIR__ . '/src/Controllers/AuthController.php';
 
     // Quick auto-loader if needed later, for now we will manually include or use spl_autoload
     spl_autoload_register(function ($class_name) {
@@ -22,6 +26,43 @@ try {
 
     // Basic Routing
     $page = $_GET['page'] ?? 'dashboard';
+    
+    // Handle login action
+    if ($page === 'login_action') {
+        $auth = new AuthController();
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $username = $_POST['username'] ?? '';
+            $password = $_POST['password'] ?? '';
+            
+            if ($auth->login($username, $password)) {
+                header('Location: ?page=dashboard');
+                exit;
+            } else {
+                header('Location: ?page=login&error=invalid');
+                exit;
+            }
+        }
+        header('Location: ?page=login');
+        exit;
+    }
+    
+    // Handle logout
+    if ($page === 'logout') {
+        $auth = new AuthController();
+        $auth->logout();
+        header('Location: ?page=login&error=logout');
+        exit;
+    }
+    
+    // Check authentication for all pages except login
+    if ($page !== 'login' && !AuthController::isAuthenticated()) {
+        header('Location: ?page=login&error=unauthorized');
+        exit;
+    }
+    
+    // Get current user for sidebar
+    $currentUser = AuthController::getCurrentUser();
+
 
 ?>
 <!DOCTYPE html>
@@ -35,6 +76,7 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
+    <?php if ($page !== 'login'): ?>
     <nav class="sidebar">
         <div class="brand">
             <img src="public/assets/img/logo.png" alt="Nexo Logo" class="brand-logo">
@@ -67,15 +109,36 @@ try {
                 </a>
             </li>
         </ul>
+        
+        <!-- User Menu --><div class="user-menu">
+            <div class="user-info">
+                <i class="fa-solid fa-circle-user"></i>
+                <span><?= htmlspecialchars($currentUser['username'] ?? '') ?></span>
+            </div>
+            <?php if (AuthController::isAdmin()): ?>
+            <a href="?page=users" class="btn" style="font-size: 0.85rem; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem;">
+                <i class="fa-solid fa-users-gear"></i> Gerenciar Usuários
+            </a>
+            <?php endif; ?>
+            <a href="?page=logout" class="btn" style="font-size: 0.85rem; padding: 0.5rem 0.75rem;">
+                <i class="fa-solid fa-right-from-bracket"></i> Sair
+            </a>
+        </div>
     </nav>
 
     <main class="main-content">
+    <?php else: ?>
+    <!-- Login page renders its own complete layout -->
+    <?php endif; ?>
         <?php
         // Simple View Router
         switch($page) {
+            case 'login':
+                require_once __DIR__ . '/templates/auth/login.php';
+                break;
+                
             case 'dashboard':
-                echo '<header><h1>Dashboard</h1><button class="btn btn-primary"><i class="fa-solid fa-plus"></i> Novo Agendamento</button></header>';
-                echo '<div class="card"><p>Bem-vindo ao sistema de gestão da clínica.</p></div>';
+                require_once __DIR__ . '/templates/dashboard/index.php';
                 break;
             
             case 'professionals':
@@ -125,12 +188,17 @@ try {
             case 'patient_package_edit':
                 include __DIR__ . '/templates/patients/package_edit.php';
                 break;
+            case 'users':
+                include __DIR__ . '/templates/auth/users_list.php';
+                break;
             default:
                 echo "<h2>Página não encontrada</h2>";
                 break;
         }
         ?>
+    <?php if ($page !== 'login'): ?>
     </main>
+    <?php endif; ?>
 </body>
 </html>
 <?php

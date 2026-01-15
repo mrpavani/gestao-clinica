@@ -24,6 +24,19 @@ class AppointmentController {
         $stmt->execute([$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
         return $stmt->fetchAll();
     }
+
+    public function getPatientAppointments($patientId, $startDate, $endDate) {
+        $sql = "SELECT a.*, prof.name as professional_name, t.name as therapy_name
+                FROM appointments a
+                JOIN professionals prof ON a.professional_id = prof.id
+                JOIN therapies t ON a.therapy_id = t.id
+                WHERE a.patient_id = ? 
+                AND a.start_time BETWEEN ? AND ?
+                ORDER BY a.start_time ASC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$patientId, $startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+        return $stmt->fetchAll();
+    }
     
     public function getById($id) {
         $sql = "SELECT a.*, p.name as patient_name, p.id as patient_id, prof.name as professional_name, prof.id as professional_id, t.name as therapy_name, t.id as therapy_id

@@ -9,6 +9,17 @@ if (!$id) die("Paciente não selecionado");
 $patient = $patientController->getById($id);
 $history = $patientController->getHistory($id);
 $plannings = $patientController->getAllPlannings($id, date('Y'));
+$packages = $patientController->getPackages($id);
+$activePackage = null;
+if (!empty($packages)) {
+    // Assuming ordered by start_date DESC, first valid one is active
+    foreach ($packages as $pkg) {
+        if ($pkg['end_date'] >= date('Y-m-d')) {
+            $activePackage = $pkg;
+            break;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -37,16 +48,28 @@ $plannings = $patientController->getAllPlannings($id, date('Y'));
     <button class="no-print" onclick="window.print()" style="padding: 10px 20px; font-size: 16px; margin-bottom: 20px; cursor: pointer;">Imprimir Relatório</button>
 
     <div class="header">
-        <h1>Relatório de Progresso e Evolução</h1>
-        <p>Clínica NeuroCare</p>
+        <h1>Relatório de Paciente / PEI</h1>
+        <p>Nexo System - Gestão Clínica</p>
     </div>
 
+    <?php if (isset($_GET['include_header']) && $_GET['include_header'] == '1'): ?>
     <div class="section">
-        <h2>Identificação</h2>
+        <h2>Identificação e Contrato</h2>
         <div class="field"><span class="label">Paciente:</span> <?= htmlspecialchars($patient['name']) ?></div>
         <div class="field"><span class="label">Data de Nascimento:</span> <?= date('d/m/Y', strtotime($patient['dob'])) ?></div>
         <div class="field"><span class="label">Responsável:</span> <?= htmlspecialchars($patient['guardian_name']) ?></div>
+        <div class="field"><span class="label">Contato:</span> <?= htmlspecialchars($patient['contact_info']) ?></div>
+        
+        <?php if ($activePackage): ?>
+            <div style="margin-top: 1rem; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                <span class="label">Contrato Vigente:</span> 
+                <?= date('d/m/Y', strtotime($activePackage['start_date'])) ?> até <?= date('d/m/Y', strtotime($activePackage['end_date'])) ?>
+            </div>
+        <?php else: ?>
+             <div class="field" style="color: #666; margin-top: 0.5rem;"><em>Sem contrato ativo.</em></div>
+        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <?php if (!empty($plannings)): ?>
     <div class="section">

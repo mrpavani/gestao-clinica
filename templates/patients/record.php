@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_planning'])) {
                 
                 <div class="form-group">
                     <label>Metas e Objetivos</label>
-                    <textarea name="goals" id="goalsArea" rows="10" style="width: 100%;" placeholder="Defina as metas terapêuticas..." required></textarea>
+                    <textarea name="goals" id="goalsArea" rows="20" style="width: 100%;" placeholder="Defina as metas terapêuticas..." required></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Salvar Planejamento</button>
             </form>
@@ -119,10 +119,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_planning'])) {
         }
         </script>
         
-        <div style="margin-top: 2rem;">
-            <a href="?page=report&patient_id=<?= $id ?>" target="_blank" class="btn" style="width: 100%; background: #4B5563; color: white;">
-                <i class="fa-solid fa-print"></i> Gerar Relatório de Impressão
-            </a>
+        <div class="card" style="margin-top: 2rem; background: #F3F4F6;">
+            <h4>Opções de Impressão</h4>
+            <form action="" method="GET" target="_blank">
+                <input type="hidden" name="page" value="report">
+                <input type="hidden" name="patient_id" value="<?= $id ?>">
+                
+                <div style="margin: 1rem 0;">
+                    <label style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" name="include_header" value="1" checked>
+                        Incluir Dados do Paciente e Contrato
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn" style="width: 100%; background: #4B5563; color: white;">
+                    <i class="fa-solid fa-print"></i> Gerar Relatório de Impressão
+                </button>
+            </form>
         </div>
     </div>
 

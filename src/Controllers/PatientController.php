@@ -36,6 +36,76 @@ class PatientController {
         return $stmt->execute([$name, $dob, $guardian, $contact, $id]);
     }
 
+    public function updateStatus($id, $status, $reason = null) {
+        $sql = "UPDATE patients SET status = ?, pause_reason = ? WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([$status, $reason, $id]);
+    }
+
+    /**
+     * Creates a patient with contract and PEI in a single transaction
+     */
+    public function createFullPatient($patientData, $contractData, $therapiesData) {
+        try {
+            $this->pdo->beginTransaction();
+
+            // 1. Create Patient
+            $sql = "INSERT INTO patients (name, dob, guardian_name, contact_info) VALUES (?, ?, ?, ?)";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                $patientData['name'], 
+                $patientData['dob'], 
+                $patientData['guardian_name'], 
+                $patientData['contact_info']
+            ]);
+            $patientId = $this->pdo->lastInsertId();
+
+            // 2. Create Patient Package (Contract)
+            $sqlPkg = "INSERT INTO patient_packages (patient_id, start_date, end_date) VALUES (?, ?, ?)";
+            $stmtPkg = $this->pdo->prepare($sqlPkg);
+            $stmtPkg->execute([
+                $patientId, 
+                $contractData['start_date'], 
+                $contractData['end_date']
+            ]);
+            $packageId = $this->pdo->lastInsertId();
+
+            // 3. Process Therapies (Package Items & PEI)
+            if (!empty($therapiesData)) {
+                $sqlItem = "INSERT INTO package_items (package_id, therapy_id, sessions_per_month) VALUES (?, ?, ?)";
+                $stmtItem = $this->pdo->prepare($sqlItem);
+
+                $sqlPei = "INSERT INTO patient_planning (patient_id, year, therapy_id, goals) VALUES (?, ?, ?, ?)";
+                $stmtPei = $this->pdo->prepare($sqlPei);
+                $currentYear = date('Y');
+
+                foreach ($therapiesData as $item) {
+                    // Add to Package
+                    if ($item['sessions'] > 0) {
+                        $stmtItem->execute([$packageId, $item['therapy_id'], $item['sessions']]);
+                    }
+
+                    // Add PEI (if goals provided or just to initialize)
+                    if (!empty($item['goals'])) {
+                        $stmtPei->execute([$patientId, $currentYear, $item['therapy_id'], $item['goals']]);
+                    }
+                }
+            }
+
+            $this->pdo->commit();
+            return $patientId;
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            // Re-throw or return false depending on how we want to handle errors
+            // If it's a duplicate entry, existing logic elsewhere might want to know
+            if ($e->getCode() == 23000) {
+                 // Duplicate entry
+                 return false;
+            }
+            throw $e;
+        }
+    }
+
     // Packages Logic
     public function createPackage($patientId, $startDate, $endDate, $items = []) {
         try {

@@ -2,7 +2,8 @@
 // config/config.php
 
 // Detect environment based on server name (or you can use an ENV variable if available)
-$isLocal = ($_SERVER['SERVER_NAME'] === 'localhost' || $_SERVER['SERVER_NAME'] === '127.0.0.1');
+$serverName = $_SERVER['SERVER_NAME'] ?? 'localhost';
+$isLocal = ($serverName === 'localhost' || $serverName === '127.0.0.1');
 
 if ($isLocal) {
     // Local Environment (XAMPP/MAMP/Built-in PHP)
@@ -18,7 +19,7 @@ if ($isLocal) {
     return [
         'db_host' => 'localhost',
         'db_name' => 'u182367286_dbclinic',
-        'db_user' => 'u182367286_dbclinic',
+        'db_user' => 'u182367286_clinic',
         'db_pass' => 'm@P599152', 
         'db_charset' => 'utf8mb4'
     ];
