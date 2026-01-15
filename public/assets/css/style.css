@@ -137,6 +137,7 @@ body {
     background-color: transparent;
     color: var(--text-secondary);
     border: 1px solid #E5E7EB;
+    gap: 0.75rem;
 }
 
 .user-menu .btn:hover {
