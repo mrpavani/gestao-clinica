@@ -11,6 +11,18 @@ $professionals = $controller->getAllWithSkills();
     </a>
 </header>
 
+<?php if (isset($_GET['success'])): ?>
+    <div style="background: #D1FAE5; color: #065F46; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+        Operação realizada com sucesso!
+    </div>
+<?php endif; ?>
+
+<?php if (isset($_GET['error'])): ?>
+    <div style="background: #FEE2E2; color: #991B1B; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+        <?= htmlspecialchars($_GET['error']) ?>
+    </div>
+<?php endif; ?>
+
 <div class="card table-container">
     <table>
         <thead>
@@ -55,7 +67,16 @@ $professionals = $controller->getAllWithSkills();
                         </td>
                         <td><?= htmlspecialchars($prof['max_weekly_hours']) ?>h</td>
                         <td>
-                            <a href="?page=professionals_new&id=<?= $prof['id'] ?>" class="btn" style="color: var(--primary-color); padding: 0.5rem;"><i class="fa-solid fa-pen"></i></a>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <a href="?page=professionals_new&id=<?= $prof['id'] ?>" class="btn" style="color: var(--primary-color); padding: 0.5rem;" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                                <a href="?page=professionals_delete&id=<?= $prof['id'] ?>" 
+                                   class="btn text-danger" 
+                                   style="color: var(--danger-color); padding: 0.5rem;" 
+                                   title="Excluir"
+                                   onclick="return confirm('Tem certeza que deseja excluir este profissional? Esta ação não pode ser desfeita.')">
+                                    <i class="fa-solid fa-trash"></i>
+                                </a>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>

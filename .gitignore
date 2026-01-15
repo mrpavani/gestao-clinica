@@ -1,0 +1,25 @@
+# .gitignore for PHP Project
+
+# Dependencies
+/vendor/
+
+# Configuration
+/config/config.php
+
+# Logs and temporary files
+*.log
+/tmp/
+.cache/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Database files (if local)
+*.sqlite
+*.db
+
+# Production build artifacts (already scheduled for deletion, but good to keep in gitignore)
+/production_build/

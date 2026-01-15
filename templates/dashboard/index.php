@@ -50,7 +50,7 @@ $monthStats = $pdo->query("
     <div class="card" style="border-left: 5px solid var(--primary-color);">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <p style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">Alunos Ativos</p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">Pacientes Ativos</p>
                 <h2 style="font-size: 2.5rem; color: var(--text-primary); margin: 0.5rem 0;"><?= $activePatients ?></h2>
             </div>
             <div style="background: #E0F2FE; color: var(--primary-color); padding: 1rem; border-radius: 50%;">
@@ -109,7 +109,7 @@ $monthStats = $pdo->query("
        <h3>Acesso Rápido</h3>
        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
            <a href="?page=patients_new" class="btn" style="background: #F3F4F6; color: var(--text-primary);">
-               <i class="fa-solid fa-user-plus"></i> Novo Aluno
+               <i class="fa-solid fa-user-plus"></i> Novo Paciente
            </a>
            <a href="?page=schedule" class="btn" style="background: #F3F4F6; color: var(--text-primary);">
                <i class="fa-solid fa-calendar-days"></i> Agenda Completa

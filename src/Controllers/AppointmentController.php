@@ -74,8 +74,8 @@ class AppointmentController {
             return ['success' => false, 'error' => 'Profissional já tem agendamento neste horário.'];
         }
 
-        $sql = "INSERT INTO appointments (patient_id, professional_id, therapy_id, start_time, end_time, notes) 
-                VALUES (?, ?, ?, ?, ?, ?)";
+                $sql = "INSERT INTO appointments (patient_id, professional_id, therapy_id, start_time, end_time, status, notes) 
+                VALUES (?, ?, ?, ?, ?, 'scheduled', ?)";
         $stmt = $this->pdo->prepare($sql);
         
         if ($stmt->execute([$patientId, $professionalId, $therapyId, $startStr, $endStr, $notes])) {
@@ -108,7 +108,30 @@ class AppointmentController {
         }
     }
 
-    private function hasConflict($professionalId, $startTime, $endTime) {
+    public function update($id, $professionalId, $startTime, $durationMinutes, $notes, $status) {
+        // Calculate End Time
+        $start = new DateTime($startTime);
+        $end = clone $start;
+        $end->modify("+$durationMinutes minutes");
+        
+        $startStr = $start->format('Y-m-d H:i:s');
+        $endStr = $end->format('Y-m-d H:i:s');
+        
+        // Conflict Check (excluding self)
+        if ($this->hasConflict($professionalId, $startStr, $endStr, $id)) {
+             return ['success' => false, 'error' => 'Profissional já tem agendamento neste horário.'];
+        }
+        
+        $sql = "UPDATE appointments SET professional_id = ?, start_time = ?, end_time = ?, notes = ?, status = ? WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        
+        if ($stmt->execute([$professionalId, $startStr, $endStr, $notes, $status, $id])) {
+            return ['success' => true];
+        }
+        return ['success' => false, 'error' => 'Erro ao atualizar agendamento.'];
+    }
+
+    private function hasConflict($professionalId, $startTime, $endTime, $excludeId = null) {
         $sql = "SELECT COUNT(*) FROM appointments 
                 WHERE professional_id = ? 
                 AND status = 'scheduled'
@@ -117,13 +140,94 @@ class AppointmentController {
                     (start_time < ? AND end_time > ?) OR
                     (start_time >= ? AND end_time <= ?)
                 )";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
+        
+        $params = [
             $professionalId, 
             $endTime, $startTime, 
             $endTime, $startTime, 
             $startTime, $endTime
-        ]);
+        ];
+
+        if ($excludeId) {
+            $sql .= " AND id != ?";
+            $params[] = $excludeId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetchColumn() > 0;
+    }
+    
+    /**
+    * Cancel an appointment by setting its status to 'canceled'.
+    * Returns array with success flag and optional error.
+    */
+    public function cancel($id) {
+        try {
+            $stmt = $this->pdo->prepare("UPDATE appointments SET status = 'canceled' WHERE id = ? AND status = 'scheduled'");
+            if ($stmt->execute([$id])) {
+                if ($stmt->rowCount() > 0) {
+                    return ['success' => true];
+                } else {
+                    return ['success' => false, 'error' => 'Agendamento não encontrado ou já está cancelado.'];
+                }
+            }
+            return ['success' => false, 'error' => 'Erro ao cancelar agendamento.'];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+    * Reschedule an appointment to a new datetime and optionally a new professional.
+    * Calculates new end_time based on existing duration.
+    */
+    public function reschedule($id, $newStartTime, $newProfessionalId = null) {
+        try {
+            // Fetch current appointment to get duration
+            $appt = $this->getById($id);
+            if (!$appt) {
+                return ['success' => false, 'error' => 'Agendamento não encontrado.'];
+            }
+            $durationMinutes = (new DateTime($appt['end_time']))->diff(new DateTime($appt['start_time']))->i;
+            $start = new DateTime($newStartTime);
+            $end = clone $start;
+            $end->modify("+$durationMinutes minutes");
+            $startStr = $start->format('Y-m-d H:i:s');
+            $endStr = $end->format('Y-m-d H:i:s');
+            // Determine professional
+            $professionalId = $newProfessionalId ?? $appt['professional_id'];
+            // Conflict check
+            if ($this->hasConflict($professionalId, $startStr, $endStr, $id)) {
+                return ['success' => false, 'error' => 'Profissional já tem agendamento neste horário.'];
+            }
+            $sql = "UPDATE appointments SET professional_id = ?, start_time = ?, end_time = ?, status = 'scheduled' WHERE id = ?";
+            $stmt = $this->pdo->prepare($sql);
+            if ($stmt->execute([$professionalId, $startStr, $endStr, $id])) {
+                return ['success' => true];
+            }
+            return ['success' => false, 'error' => 'Erro ao reagendar agendamento.'];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    public function delete($id) {
+        try {
+            // Check if has notes
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM session_notes WHERE appointment_id = ?");
+            $stmt->execute([$id]);
+            if ($stmt->fetchColumn() > 0) {
+                return ['success' => false, 'error' => 'Não é possível excluir: já existem anotações de evolução para este agendamento.'];
+            }
+            
+            $stmt = $this->pdo->prepare("DELETE FROM appointments WHERE id = ?");
+            if ($stmt->execute([$id])) {
+                return ['success' => true];
+            }
+            return ['success' => false, 'error' => 'Erro ao excluir agendamento.'];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 }

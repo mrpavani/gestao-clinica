@@ -86,4 +86,31 @@ class TherapyController {
         $stmt = $this->pdo->query("SELECT id, name, specialty FROM professionals ORDER BY name ASC");
         return $stmt->fetchAll();
     }
+    
+    public function delete($id) {
+        try {
+            // Check for dependencies
+            // Check for future appointments only (scheduled)
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM appointments WHERE therapy_id = ? AND start_time >= NOW() AND status = 'scheduled'");
+            $stmt->execute([$id]);
+            if ($stmt->fetchColumn() > 0) {
+                return ['success' => false, 'error' => 'Não é possível excluir: existem agendamentos futuros vinculados a esta terapia.'];
+            }
+            
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM package_items WHERE therapy_id = ?");
+            $stmt->execute([$id]);
+            if ($stmt->fetchColumn() > 0) {
+                return ['success' => false, 'error' => 'Não é possível excluir: existem pacotes vinculados a esta terapia.'];
+            }
+            
+            // Safe to delete
+            $stmt = $this->pdo->prepare("DELETE FROM therapies WHERE id = ?");
+            if ($stmt->execute([$id])) {
+                return ['success' => true];
+            }
+            return ['success' => false, 'error' => 'Erro ao excluir terapia.'];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
 }

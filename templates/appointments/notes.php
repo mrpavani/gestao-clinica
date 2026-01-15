@@ -42,7 +42,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Context Column -->
     <div>
         <div class="card" style="margin-bottom: 1rem;">
-            <h3>Detalhes do Atendimento</h3>
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <h3>Detalhes do Atendimento</h3>
+                <a href="?page=appointment_edit&id=<?= $id ?>" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem; color: var(--primary-color);">
+                    <i class="fa-solid fa-pen"></i> Editar
+                </a>
+            </div>
             <p><strong>Paciente:</strong> <?= htmlspecialchars($appt['patient_name']) ?></p>
             <p><strong>Profissional:</strong> <?= htmlspecialchars($appt['professional_name']) ?></p>
             <p><strong>Terapia:</strong> <?= htmlspecialchars($appt['therapy_name']) ?></p>

@@ -150,6 +150,25 @@ try {
                 require_once __DIR__ . '/templates/professionals/form.php';
                 break;
             
+            case 'professionals_delete':
+                if (AuthController::isAdmin()) {
+                    $id = $_GET['id'] ?? null;
+                    if ($id) {
+                        $controller = new ProfessionalController();
+                        $result = $controller->delete($id);
+                        if ($result['success']) {
+                            header('Location: ?page=professionals&success=deleted');
+                        } else {
+                            header('Location: ?page=professionals&error=' . urlencode($result['error']));
+                        }
+                    } else {
+                        header('Location: ?page=professionals');
+                    }
+                } else {
+                    header('Location: ?page=professionals&error=' . urlencode('Acesso negado.'));
+                }
+                exit;
+            
             case 'patients':
                 require_once __DIR__ . '/templates/patients/list.php';
                 break;
@@ -170,12 +189,35 @@ try {
                 require_once __DIR__ . '/templates/therapies/form.php';
                 break;
                 
+            case 'therapies_delete':
+                if (AuthController::isAdmin()) {
+                    $id = $_GET['id'] ?? null;
+                    if ($id) {
+                        $controller = new TherapyController();
+                        $result = $controller->delete($id);
+                        if ($result['success']) {
+                            header('Location: ?page=therapies&success=deleted');
+                        } else {
+                            header('Location: ?page=therapies&error=' . urlencode($result['error']));
+                        }
+                    } else {
+                        header('Location: ?page=therapies');
+                    }
+                } else {
+                    header('Location: ?page=therapies&error=' . urlencode('Acesso negado.'));
+                }
+                exit;
+                
             case 'schedule':
                 require_once __DIR__ . '/templates/schedule/calendar.php';
                 break;
                 
             case 'appointment_notes':
                  require_once __DIR__ . '/templates/appointments/notes.php';
+                 break;
+
+            case 'appointment_edit':
+                 require_once __DIR__ . '/templates/appointments/edit.php';
                  break;
 
             case 'patients_record':

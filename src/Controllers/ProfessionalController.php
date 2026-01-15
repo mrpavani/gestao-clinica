@@ -49,9 +49,31 @@ class ProfessionalController {
         }
     }
     
+    
     public function delete($id) {
-        $stmt = $this->pdo->prepare("DELETE FROM professionals WHERE id = ?");
-        return $stmt->execute([$id]);
+        try {
+            // Check for future appointments only (scheduled)
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM appointments WHERE professional_id = ? AND start_time >= NOW() AND status = 'scheduled'");
+            $stmt->execute([$id]);
+            if ($stmt->fetchColumn() > 0) {
+                return ['success' => false, 'error' => 'Não é possível excluir: o profissional possui agendamentos futuros.'];
+            }
+            
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE professional_id = ?");
+            $stmt->execute([$id]);
+            if ($stmt->fetchColumn() > 0) {
+                return ['success' => false, 'error' => 'Não é possível excluir: existe um usuário vinculado a este profissional.'];
+            }
+            
+            // Safe to delete (CASCADE will handle professional_skills and professional_therapies)
+            $stmt = $this->pdo->prepare("DELETE FROM professionals WHERE id = ?");
+            if ($stmt->execute([$id])) {
+                return ['success' => true];
+            }
+            return ['success' => false, 'error' => 'Erro ao excluir profissional.'];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
     
     // Skills Management

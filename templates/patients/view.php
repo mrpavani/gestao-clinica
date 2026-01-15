@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_package'])) {
 ?>
 
 <header>
-    <h1>Perfil do Aluno</h1>
+    <h1>Perfil do Paciente</h1>
     <div>
         <a href="?page=patients" class="btn" style="background: #e5e7eb; color: var(--text-primary); margin-right: 0.5rem;">
             <i class="fa-solid fa-arrow-left"></i> Voltar
@@ -236,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_package'])) {
 <div id="statusModal" class="modal">
     <div class="modal-content" style="max-width: 500px;">
         <button class="modal-close" onclick="closeModal('statusModal')">&times;</button>
-        <h2 style="margin-bottom: 1.5rem;">Alterar Status do Aluno</h2>
+        <h2 style="margin-bottom: 1.5rem;">Alterar Status do Paciente</h2>
         <form method="POST">
             <input type="hidden" name="update_status" value="1">
             
