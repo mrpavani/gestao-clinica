@@ -140,12 +140,15 @@ body {
     background-color: transparent !important;
     color: var(--text-secondary) !important;
     border: 1px solid #E5E7EB !important;
-    gap: 0.75rem !important;
+    gap: 0.5rem !important;
+    /* reduced gap for better alignment */
     text-decoration: none !important;
     font-size: 0.85rem !important;
     padding: 0.5rem 0.75rem !important;
     margin: 0 !important;
     display: inline-flex !important;
+    align-items: center !important;
+    /* ensure vertical centering */
 }
 
 .sidebar-footer-menu .btn:hover {
