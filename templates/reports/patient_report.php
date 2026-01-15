@@ -26,6 +26,7 @@ if (!empty($packages)) {
 <head>
     <meta charset="UTF-8">
     <title>Relatório - <?= htmlspecialchars($patient['name']) ?></title>
+    <link rel="icon" type="image/png" href="public/assets/img/logo.png">
     <style>
         body { font-family: sans-serif; line-height: 1.5; padding: 2rem; color: #333; }
         h1, h2, h3 { color: #111; }
@@ -48,8 +49,8 @@ if (!empty($packages)) {
     <button class="no-print" onclick="window.print()" style="padding: 10px 20px; font-size: 16px; margin-bottom: 20px; cursor: pointer;">Imprimir Relatório</button>
 
     <div class="header">
-        <h1>Relatório de Paciente / PEI</h1>
-        <p>Nexo System - Gestão Clínica</p>
+        <h1>Nexo System</h1>
+        <p>Relatório de Paciente / PEI</p>
     </div>
 
     <?php if (isset($_GET['include_header']) && $_GET['include_header'] == '1'): ?>
