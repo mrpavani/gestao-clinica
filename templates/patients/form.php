@@ -68,10 +68,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                // Collect Documents (Files)
+                $documentsData = [];
+                if (isset($_FILES['documents'])) {
+                    foreach ($_FILES['documents']['name'] as $docId => $filename) {
+                        if ($_FILES['documents']['error'][$docId] === UPLOAD_ERR_OK) {
+                            $documentsData[$docId] = [
+                                'name' => $_FILES['documents']['name'][$docId],
+                                'type' => $_FILES['documents']['type'][$docId],
+                                'tmp_name' => $_FILES['documents']['tmp_name'][$docId],
+                                'error' => $_FILES['documents']['error'][$docId],
+                                'size' => $_FILES['documents']['size'][$docId]
+                            ];
+                        }
+                    }
+                }
+
                 $newId = $controller->createFullPatient(
                     ['name' => $name, 'dob' => $dob, 'guardian_name' => $guardian, 'contact_info' => $contact],
                     ['start_date' => $contractStart, 'end_date' => $contractEnd],
-                    $selectedTherapies
+                    $selectedTherapies,
+                    $documentsData
                 );
 
                 if ($newId) {
@@ -82,6 +99,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+    }
+}
+
+// Fetch all therapy documents to use in JS
+$allTherapyDocs = [];
+foreach ($therapies as $t) {
+    // Assuming TherapyController has getDocuments(id)
+    $docs = $therapyController->getDocuments($t['id']);
+    if (!empty($docs)) {
+        $allTherapyDocs[$t['id']] = $docs;
     }
 }
 ?>
@@ -100,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     <?php endif; ?>
 
-    <form method="POST" id="patientForm">
+    <form method="POST" id="patientForm" enctype="multipart/form-data">
         
         <!-- SECTION 1: Personal Data -->
         <h3 style="color: var(--primary-color); margin-bottom: 1rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem;">Dados Pessoais</h3>
@@ -144,10 +171,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
-            <!-- SECTION 3: Therapies & PEI -->
+            <!-- SECTION 3: Therapies & Documents -->
             <div style="margin-top: 2rem;">
-                <h3 style="color: var(--primary-color); margin-bottom: 1rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem;">Terapias e PEI Inicial</h3>
-                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">Selecione as terapias para habilitar os campos de quantidade e objetivos.</p>
+                <h3 style="color: var(--primary-color); margin-bottom: 1rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem;">Terapias e Documentos</h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">Selecione as terapias. Documentos obrigatórios aparecerão abaixo.</p>
 
                 <?php foreach ($therapies as $therapy): ?>
                     <div style="background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
@@ -164,6 +191,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="form-group">
                                 <label>Objetivos Iniciais do PEI (Planejamento)</label>
                                 <textarea name="goals_<?= $therapy['id'] ?>" rows="3" placeholder="Descreva os objetivos iniciais para esta terapia..."></textarea>
+                            </div>
+                            
+                            <!-- Document Upload Section for this Therapy -->
+                            <div id="docs_section_<?= $therapy['id'] ?>" style="margin-top: 1rem;">
+                                <!-- Content injected via JS -->
                             </div>
                         </div>
                     </div>
@@ -185,6 +217,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
+const therapyDocs = <?= json_encode($allTherapyDocs) ?>;
+
 function checkAge() {
     const dobInput = document.getElementById('dob');
     if (!dobInput.value) return;
@@ -202,13 +236,12 @@ function checkAge() {
         warning.style.display = 'inline';
         guardianInput.required = true;
         contactInput.required = true;
-        // Visual indicator
         guardianInput.style.borderColor = '#FCA5A5';
         contactInput.style.borderColor = '#FCA5A5';
     } else {
         warning.style.display = 'none';
         guardianInput.required = false;
-        contactInput.required = false; // Could keep generic required if policy demands
+        contactInput.required = false;
         guardianInput.style.borderColor = '#E5E7EB';
         contactInput.style.borderColor = '#E5E7EB';
     }
@@ -219,8 +252,37 @@ function toggleTherapyFields(id) {
     const fields = document.getElementById('fields_' + id);
     if (checkbox.checked) {
         fields.style.display = 'block';
+        renderDocs(id);
     } else {
         fields.style.display = 'none';
+    }
+}
+
+function renderDocs(therapyId) {
+    const container = document.getElementById('docs_section_' + therapyId);
+    if (!container) return;
+    
+    // Check if we have documents for this therapy
+    if (therapyDocs[therapyId] && therapyDocs[therapyId].length > 0) {
+        let html = '<div style="background: #fff; padding: 0.75rem; border: 1px dashed #cbd5e1; border-radius: 4px;">';
+        html += '<h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: var(--text-secondary);">Documentos Necessários</h4>';
+        
+        therapyDocs[therapyId].forEach(doc => {
+            const requiredMark = doc.is_required == 1 ? '<span style="color:red">*</span>' : '<span style="color:gray; font-size:0.8em">(Opcional)</span>';
+            const requiredAttr = doc.is_required == 1 ? 'required' : '';
+            
+            html += `
+                <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <label style="font-size: 0.9rem;">${doc.name} ${requiredMark}</label>
+                    <input type="file" name="documents[${doc.id}]" ${requiredAttr} accept=".pdf,.jpg,.jpeg,.png">
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = '';
     }
 }
 

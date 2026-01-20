@@ -11,7 +11,13 @@ class PatientController {
     }
 
     public function getAll() {
-        $stmt = $this->pdo->query("SELECT * FROM patients ORDER BY name ASC");
+        $branchId = $_SESSION['branch_id'] ?? null;
+        if ($branchId) {
+            $stmt = $this->pdo->prepare("SELECT * FROM patients WHERE branch_id = ? ORDER BY name ASC");
+            $stmt->execute([$branchId]);
+        } else {
+            $stmt = $this->pdo->query("SELECT * FROM patients ORDER BY name ASC");
+        }
         return $stmt->fetchAll();
     }
 
@@ -22,9 +28,10 @@ class PatientController {
     }
 
     public function create($name, $dob, $guardian, $contact) {
-        $sql = "INSERT INTO patients (name, dob, guardian_name, contact_info) VALUES (?, ?, ?, ?)";
+        $branchId = $_SESSION['branch_id'] ?? null;
+        $sql = "INSERT INTO patients (name, dob, guardian_name, contact_info, branch_id) VALUES (?, ?, ?, ?, ?)";
         $stmt = $this->pdo->prepare($sql);
-        if ($stmt->execute([$name, $dob, $guardian, $contact])) {
+        if ($stmt->execute([$name, $dob, $guardian, $contact, $branchId])) {
             return $this->pdo->lastInsertId();
         }
         return false;
@@ -42,21 +49,29 @@ class PatientController {
         return $stmt->execute([$status, $reason, $id]);
     }
 
+    public function changeBranch($id, $newBranchId) {
+        $sql = "UPDATE patients SET branch_id = ? WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([$newBranchId, $id]);
+    }
+
     /**
      * Creates a patient with contract and PEI in a single transaction
      */
-    public function createFullPatient($patientData, $contractData, $therapiesData) {
+    public function createFullPatient($patientData, $contractData, $therapiesData, $documentsData = []) {
         try {
             $this->pdo->beginTransaction();
 
             // 1. Create Patient
-            $sql = "INSERT INTO patients (name, dob, guardian_name, contact_info) VALUES (?, ?, ?, ?)";
+            $branchId = $_SESSION['branch_id'] ?? null;
+            $sql = "INSERT INTO patients (name, dob, guardian_name, contact_info, branch_id) VALUES (?, ?, ?, ?, ?)";
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([
                 $patientData['name'], 
                 $patientData['dob'], 
                 $patientData['guardian_name'], 
-                $patientData['contact_info']
+                $patientData['contact_info'],
+                $branchId
             ]);
             $patientId = $this->pdo->lastInsertId();
 
@@ -91,6 +106,11 @@ class PatientController {
                     }
                 }
             }
+            
+            // 4. Process Documents
+            if (!empty($documentsData)) {
+                $this->saveDocuments($patientId, $documentsData);
+            }
 
             $this->pdo->commit();
             return $patientId;
@@ -103,6 +123,31 @@ class PatientController {
                  return false;
             }
             throw $e;
+        }
+    }
+    
+    public function saveDocuments($patientId, $files) {
+        $uploadDir = __DIR__ . '/../../public/uploads/patients/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $sql = "INSERT INTO patient_documents (patient_id, therapy_document_id, file_path) VALUES (?, ?, ?)";
+        $stmt = $this->pdo->prepare($sql);
+        
+        foreach ($files as $docId => $file) {
+            if ($file['error'] === UPLOAD_ERR_OK) {
+                // Generate safe filename
+                $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+                $filename = 'p' . $patientId . '_d' . $docId . '_' . uniqid() . '.' . $extension;
+                $targetPath = $uploadDir . $filename;
+                
+                if (move_uploaded_file($file['tmp_name'], $targetPath)) {
+                    // Store relative path
+                    $dbPath = 'uploads/patients/' . $filename;
+                    $stmt->execute([$patientId, $docId, $dbPath]);
+                }
+            }
         }
     }
 

@@ -223,6 +223,10 @@ header h1 {
     transform: translateY(-1px);
 }
 
+.btn i {
+    margin-right: 0.5rem;
+}
+
 /* Forms */
 .form-group {
     margin-bottom: 1.25rem;

@@ -54,14 +54,24 @@ try {
         exit;
     }
     
-    // Check authentication for all pages except login
-    if ($page !== 'login' && !AuthController::isAuthenticated()) {
+    // Check authentication for all pages except login and select_branch
+    if ($page !== 'login' && $page !== 'select_branch' && !AuthController::isAuthenticated()) {
         header('Location: ?page=login&error=unauthorized');
         exit;
     }
     
+    // Require branch selection for authenticated users (except on select_branch page)
+    require_once __DIR__ . '/src/Controllers/BranchController.php';
+    if (AuthController::isAuthenticated() && $page !== 'select_branch' && $page !== 'login' && $page !== 'logout') {
+        if (!BranchController::hasBranchSelected()) {
+            header('Location: ?page=select_branch');
+            exit;
+        }
+    }
+    
     // Get current user for sidebar
     $currentUser = AuthController::getCurrentUser();
+    $currentBranchName = BranchController::getCurrentBranchName();
 
 
 ?>
@@ -80,12 +90,24 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <?php if ($page !== 'login'): ?>
+    <?php if ($page !== 'login' && $page !== 'select_branch'): ?>
     <nav class="sidebar">
         <div class="brand">
             <img src="public/assets/img/logo.png" alt="Nexo Logo" class="brand-logo">
             <span>Nexo System</span>
         </div>
+        
+        <!-- Current Branch Badge -->
+        <?php if ($currentBranchName): ?>
+        <div style="background: #E0F2FE; border-radius: var(--radius-md); padding: 0.5rem 0.75rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fa-solid fa-building" style="color: var(--primary-color);"></i>
+            <span style="font-weight: 500; color: var(--primary-color); font-size: 0.9rem;"><?= htmlspecialchars($currentBranchName) ?></span>
+            <a href="?page=select_branch" style="margin-left: auto; font-size: 0.8rem; color: var(--text-secondary);" title="Trocar Filial">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </a>
+        </div>
+        <?php endif; ?>
+        
         <ul class="nav-links">
             <li class="nav-item">
                 <a href="?page=dashboard" class="<?= $page === 'dashboard' ? 'active' : '' ?>">
@@ -120,6 +142,9 @@ try {
                 <span><?= htmlspecialchars($currentUser['username'] ?? '') ?></span>
             </div>
             <?php if (AuthController::isAdmin()): ?>
+            <a href="?page=branches" class="btn">
+                <i class="fa-solid fa-building"></i> Gerenciar Filiais
+            </a>
             <a href="?page=users" class="btn">
                 <i class="fa-solid fa-users-gear"></i> Gerenciar Usuários
             </a>
@@ -140,9 +165,21 @@ try {
             case 'login':
                 require_once __DIR__ . '/templates/auth/login.php';
                 break;
+            
+            case 'select_branch':
+                require_once __DIR__ . '/templates/auth/select_branch.php';
+                break;
                 
             case 'dashboard':
                 require_once __DIR__ . '/templates/dashboard/index.php';
+                break;
+            
+            case 'branches':
+                require_once __DIR__ . '/templates/branches/list.php';
+                break;
+            
+            case 'branches_new':
+                require_once __DIR__ . '/templates/branches/form.php';
                 break;
             
             case 'professionals':

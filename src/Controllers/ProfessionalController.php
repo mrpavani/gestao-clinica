@@ -11,7 +11,13 @@ class ProfessionalController {
     }
 
     public function getAll() {
-        $stmt = $this->pdo->query("SELECT * FROM professionals ORDER BY name ASC");
+        $branchId = $_SESSION['branch_id'] ?? null;
+        if ($branchId) {
+            $stmt = $this->pdo->prepare("SELECT * FROM professionals WHERE branch_id = ? ORDER BY name ASC");
+            $stmt->execute([$branchId]);
+        } else {
+            $stmt = $this->pdo->query("SELECT * FROM professionals ORDER BY name ASC");
+        }
         return $stmt->fetchAll();
     }
 
@@ -23,9 +29,10 @@ class ProfessionalController {
 
     public function create($name, $specialty, $max_weekly_hours, $email = null) {
         try {
-            $sql = "INSERT INTO professionals (name, specialty, email, max_weekly_hours) VALUES (?, ?, ?, ?)";
+            $branchId = $_SESSION['branch_id'] ?? null;
+            $sql = "INSERT INTO professionals (name, specialty, email, max_weekly_hours, branch_id) VALUES (?, ?, ?, ?, ?)";
             $stmt = $this->pdo->prepare($sql);
-            $result = $stmt->execute([$name, $specialty, $email, $max_weekly_hours]);
+            $result = $stmt->execute([$name, $specialty, $email, $max_weekly_hours, $branchId]);
             return $result ? $this->pdo->lastInsertId() : false;
         } catch (PDOException $e) {
             // Check for duplicate entry
@@ -47,6 +54,12 @@ class ProfessionalController {
             }
             throw $e;
         }
+    }
+
+    public function changeBranch($id, $newBranchId) {
+        $sql = "UPDATE professionals SET branch_id = ? WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([$newBranchId, $id]);
     }
     
     
