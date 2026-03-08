@@ -25,7 +25,7 @@ try {
     });
 
     // Basic Routing
-    $page = $_GET['page'] ?? 'dashboard';
+    $page = $_GET['page'] ?? (AuthController::isProfessional() ? 'schedule' : 'dashboard');
     
     // Handle login action
     if ($page === 'login_action') {
@@ -109,6 +109,7 @@ try {
         <?php endif; ?>
         
         <ul class="nav-links">
+            <?php if (AuthController::isAdmin()): ?>
             <li class="nav-item">
                 <a href="?page=dashboard" class="<?= $page === 'dashboard' ? 'active' : '' ?>">
                     <i class="fa-solid fa-chart-pie"></i> Dashboard
@@ -120,7 +121,7 @@ try {
                 </a>
             </li>
             <li class="nav-item">
-                <a href="?page=patients" class="<?= $page === 'patients' ? 'active' : '' ?>">
+                <a href="?page=patients" class="<?= strpos($page, 'patient') === 0 ? 'active' : '' ?>">
                     <i class="fa-solid fa-users"></i> Pacientes
                 </a>
             </li>
@@ -129,11 +130,19 @@ try {
                     <i class="fa-solid fa-hands-holding-child"></i> Terapias
                 </a>
             </li>
+            <?php endif; ?>
             <li class="nav-item">
                 <a href="?page=schedule" class="<?= $page === 'schedule' ? 'active' : '' ?>">
                     <i class="fa-regular fa-calendar-days"></i> Agenda
                 </a>
             </li>
+            <?php if (AuthController::isAdmin()): ?>
+            <li class="nav-item" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                <a href="?page=settings" class="<?= in_array($page, ['settings', 'specialties', 'specialties_new']) ? 'active' : '' ?>">
+                    <i class="fa-solid fa-gear"></i> Configurações
+                </a>
+            </li>
+            <?php endif; ?>
         </ul>
         
         <!-- User Menu --><div class="sidebar-footer-menu">
@@ -161,6 +170,9 @@ try {
     <?php endif; ?>
         <?php
         // Simple View Router
+        
+        $isAdmin = AuthController::isAdmin();
+        
         switch($page) {
             case 'login':
                 require_once __DIR__ . '/templates/auth/login.php';
@@ -171,23 +183,32 @@ try {
                 break;
                 
             case 'dashboard':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/dashboard/index.php';
                 break;
             
             case 'branches':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/branches/list.php';
                 break;
             
             case 'branches_new':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/branches/form.php';
                 break;
             
+            case 'settings':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
+                require_once __DIR__ . '/templates/settings/index.php';
+                break;
+            
             case 'professionals':
-                // We will move this to a controller later, doing inline for speed on first pass
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/professionals/list.php';
                 break;
 
             case 'professionals_new':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/professionals/form.php';
                 break;
             
@@ -211,26 +232,42 @@ try {
                 exit;
             
             case 'patients':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/patients/list.php';
                 break;
             
             case 'patients_new':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/patients/form.php';
                 break;
 
             case 'patients_view':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/patients/view.php';
                 break;
             
+            case 'patient_edit_plan':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
+                require_once __DIR__ . '/templates/patients/edit_plan.php';
+                break;
+                
+            case 'patient_package_edit':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
+                include __DIR__ . '/templates/patients/package_edit.php';
+                break;
+            
             case 'therapies':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/therapies/list.php';
                 break;
             
             case 'therapies_new':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/therapies/form.php';
                 break;
                 
             case 'therapies_delete':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 if (AuthController::isAdmin()) {
                     $id = $_GET['id'] ?? null;
                     if ($id) {
@@ -248,6 +285,36 @@ try {
                     header('Location: ?page=therapies&error=' . urlencode('Acesso negado.'));
                 }
                 exit;
+
+            case 'specialties':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
+                require_once __DIR__ . '/templates/specialties/list.php';
+                break;
+            
+            case 'specialties_new':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
+                require_once __DIR__ . '/templates/specialties/form.php';
+                break;
+
+            case 'specialties_delete':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
+                if (AuthController::isAdmin()) {
+                    $id = $_GET['id'] ?? null;
+                    if ($id) {
+                        $controller = new SpecialtyController();
+                        if ($controller->delete($id)) {
+                            header('Location: ?page=specialties&success=deleted');
+                        } else {
+                            header('Location: ?page=specialties&error=' . urlencode('Erro ao excluir especialidade.'));
+                        }
+                    } else {
+                        header('Location: ?page=specialties');
+                    }
+                } else {
+                    header('Location: ?page=specialties&error=' . urlencode('Acesso negado.'));
+                }
+                exit;
+                
                 
             case 'schedule':
                 require_once __DIR__ . '/templates/schedule/calendar.php';
@@ -266,12 +333,11 @@ try {
                  break;
             
             case 'report':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 include __DIR__ . '/templates/reports/patient_report.php';
                 break;
-            case 'patient_package_edit':
-                include __DIR__ . '/templates/patients/package_edit.php';
-                break;
             case 'users':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 include __DIR__ . '/templates/auth/users_list.php';
                 break;
             default:

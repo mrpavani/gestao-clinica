@@ -12,6 +12,13 @@ if (!$id) die("ID Inválido");
 $appt = $apptController->getById($id);
 if (!$appt) die("Agendamento não encontrado");
 
+// Check if user has permission
+if (!AuthController::isAdmin()) {
+    if ($appt['professional_id'] != $_SESSION['professional_id']) {
+        die("Acesso negado: Você não tem permissão para visualizar ou editar evoluções de outro profissional.");
+    }
+}
+
 // Get Patient Planning for THIS therapy
 $planning = $patientController->getActivePlanning($appt['patient_id'], date('Y'), $appt['therapy_id']);
 
@@ -44,9 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="card" style="margin-bottom: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <h3>Detalhes do Atendimento</h3>
+                <?php if (AuthController::isAdmin()): ?>
                 <a href="?page=appointment_edit&id=<?= $id ?>" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem; color: var(--primary-color);">
                     <i class="fa-solid fa-pen"></i> Editar
                 </a>
+                <?php endif; ?>
             </div>
             <p><strong>Paciente:</strong> <?= htmlspecialchars($appt['patient_name']) ?></p>
             <p><strong>Profissional:</strong> <?= htmlspecialchars($appt['professional_name']) ?></p>

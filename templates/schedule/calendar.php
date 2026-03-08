@@ -20,7 +20,20 @@ $startDay = date('w', strtotime($startDate));
 $daysInMonth = date('t', strtotime($startDate));
 $weeks = ceil(($startDay + $daysInMonth) / 7);
 
-$appointments = $apptController->getAppointmentsByRange($startDate, $endDate);
+$view = $_GET['view'] ?? 'month';
+$currentDate = $_GET['date'] ?? date('Y-m-d');
+$profFilter = $_GET['prof_filter'] ?? '';
+
+if (!AuthController::isAdmin() && AuthController::isProfessional()) {
+    $profFilter = $_SESSION['professional_id'];
+}
+
+if ($view === 'day') {
+    $startDate = "$currentDate";
+    $endDate = "$currentDate";
+}
+
+$appointments = $apptController->getAppointmentsByRange($startDate, $endDate, $profFilter);
 $professionals = $profController->getAll();
 $therapies = $therapyController->getAll();
 $patients = $patientController->getAll();
@@ -76,17 +89,72 @@ $prevMonth = date('m', strtotime("$startDate -1 month"));
 $prevYear = date('Y', strtotime("$startDate -1 month"));
 $nextMonth = date('m', strtotime("$startDate +1 month"));
 $nextYear = date('Y', strtotime("$startDate +1 month"));
+// Navigation for Day View
+$prevDay = date('Y-m-d', strtotime("$currentDate -1 day"));
+$nextDay = date('Y-m-d', strtotime("$currentDate +1 day"));
+
+$monthsPt = [
+    '01' => 'Janeiro', '02' => 'Fevereiro', '03' => 'Março', '04' => 'Abril',
+    '05' => 'Maio', '06' => 'Junho', '07' => 'Julho', '08' => 'Agosto',
+    '09' => 'Setembro', '10' => 'Outubro', '11' => 'Novembro', '12' => 'Dezembro'
+];
+$monthName = $monthsPt[$month] ?? date('F', strtotime($startDate));
 ?>
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-    <h1>Agenda - <?= date('F Y', strtotime($startDate)) ?></h1>
-    <div>
-        <a href="?page=schedule&month=<?= $prevMonth ?>&year=<?= $prevYear ?>" class="btn" style="background: #e5e7eb; color: var(--text-primary);">
-            <i class="fa-solid fa-chevron-left"></i> Anterior
-        </a>
-        <a href="?page=schedule&month=<?= $nextMonth ?>&year=<?= $nextYear ?>" class="btn" style="background: #e5e7eb; color: var(--text-primary);">
-            Próximo <i class="fa-solid fa-chevron-right"></i>
-        </a>
+    <h1>
+        <?php if ($view === 'day'): ?>
+            Agenda - <?= date('d/m/Y', strtotime($currentDate)) ?>
+        <?php else: ?>
+            Agenda - <?= $monthName ?> <?= $year ?>
+        <?php endif; ?>
+    </h1>
+    <div style="display: flex; gap: 1rem; align-items: center;">
+        <?php if (AuthController::isAdmin()): ?>
+        <form method="GET" style="display: flex; gap: 0.5rem; align-items: center; margin: 0;">
+            <input type="hidden" name="page" value="schedule">
+            <input type="hidden" name="view" value="<?= $view ?>">
+            <?php if ($view === 'month'): ?>
+                <input type="hidden" name="year" value="<?= $year ?>">
+                <input type="hidden" name="month" value="<?= $month ?>">
+            <?php else: ?>
+                <input type="hidden" name="date" value="<?= $currentDate ?>">
+            <?php endif; ?>
+            <select name="prof_filter" style="padding: 0.25rem 0.5rem; border: 1px solid #d1d5db; border-radius: var(--radius-md);" onchange="this.form.submit()">
+                <option value="">Todos os Profissionais</option>
+                <?php foreach ($professionals as $p): ?>
+                    <option value="<?= $p['id'] ?>" <?= $profFilter == $p['id'] ? 'selected' : '' ?>><?= htmlspecialchars($p['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </form>
+        <?php endif; ?>
+
+        <div style="background: #e5e7eb; border-radius: var(--radius-md); padding: 0.25rem;">
+            <a href="?page=schedule&view=month&month=<?= $month ?>&year=<?= $year ?>&prof_filter=<?= $profFilter ?>" class="btn <?= $view === 'month' ? 'btn-primary' : '' ?>" style="<?= $view !== 'month' ? 'background:transparent; color:#4B5563; border:none;' : 'padding: 0.25rem 0.75rem; border:none;' ?>">Mês</a>
+            <a href="?page=schedule&view=day&date=<?= $view === 'day' ? $currentDate : date('Y-m-d') ?>&prof_filter=<?= $profFilter ?>" class="btn <?= $view === 'day' ? 'btn-primary' : '' ?>" style="<?= $view !== 'day' ? 'background:transparent; color:#4B5563; border:none;' : 'padding: 0.25rem 0.75rem; border:none;' ?>">Dia</a>
+        </div>
+
+        <?php if ($view === 'day'): ?>
+            <div>
+                <a href="?page=schedule&view=day&date=<?= $prevDay ?>&prof_filter=<?= $profFilter ?>" class="btn" style="background: #e5e7eb; color: var(--text-primary);">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </a>
+                <a href="?page=schedule&view=day&date=<?= date('Y-m-d') ?>&prof_filter=<?= $profFilter ?>" class="btn" style="background: #f3f4f6; color: var(--text-primary); margin: 0 0.25rem;">Hoje</a>
+                <a href="?page=schedule&view=day&date=<?= $nextDay ?>&prof_filter=<?= $profFilter ?>" class="btn" style="background: #e5e7eb; color: var(--text-primary);">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            </div>
+        <?php else: ?>
+            <div>
+                <a href="?page=schedule&view=month&month=<?= $prevMonth ?>&year=<?= $prevYear ?>&prof_filter=<?= $profFilter ?>" class="btn" style="background: #e5e7eb; color: var(--text-primary);">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </a>
+                <a href="?page=schedule&view=month&month=<?= date('m') ?>&year=<?= date('Y') ?>&prof_filter=<?= $profFilter ?>" class="btn" style="background: #f3f4f6; color: var(--text-primary); margin: 0 0.25rem;">Hoje</a>
+                <a href="?page=schedule&view=month&month=<?= $nextMonth ?>&year=<?= $nextYear ?>&prof_filter=<?= $profFilter ?>" class="btn" style="background: #e5e7eb; color: var(--text-primary);">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -104,51 +172,93 @@ $nextYear = date('Y', strtotime("$startDate +1 month"));
 
 <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 2rem;">
     <!-- Calendar Grid -->
-    <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: var(--radius-md); overflow: hidden;">
-        <!-- Headers -->
-        <?php foreach (['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] as $h): ?>
-            <div style="background: #f9fafb; padding: 0.5rem; text-align: center; font-weight: bold; color: var(--text-secondary);">
-                <?= $h ?>
-            </div>
-        <?php endforeach; ?>
+    <?php if ($view === 'month'): ?>
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: var(--radius-md); overflow: hidden;">
+            <!-- Headers -->
+            <?php foreach (['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] as $h): ?>
+                <div style="background: #f9fafb; padding: 0.5rem; text-align: center; font-weight: bold; color: var(--text-secondary);">
+                    <?= $h ?>
+                </div>
+            <?php endforeach; ?>
 
-        <!-- Days -->
-        <?php
-        $dayCount = 1;
-        for ($i = 0; $i < $weeks * 7; $i++) {
-            if ($i < $startDay || $dayCount > $daysInMonth) {
-                echo '<div style="background: white; min-height: 120px;"></div>';
-            } else {
-                $isToday = ($year == date('Y') && $month == date('m') && $dayCount == date('j'));
-                $events = $calendarEvents[$dayCount] ?? [];
-                
-                echo '<div style="background: white; min-height: 120px; padding: 0.5rem; border: 1px solid #f3f4f6; position: relative;">';
-                echo '<div style="font-weight: bold; margin-bottom: 0.5rem; ' . ($isToday ? 'color: var(--primary-color);' : '') . '">' . $dayCount . '</div>';
-                
-                foreach ($events as $evt) {
-                    $color = ($evt['status'] == 'completed') ? '#10B981' : 'var(--primary-color)';
-                    $title = date('H:i', strtotime($evt['start_time'])) . ' - ' . substr($evt['patient_name'], 0, 10) . '...';
+            <!-- Days -->
+            <?php
+            $dayCount = 1;
+            for ($i = 0; $i < $weeks * 7; $i++) {
+                if ($i < $startDay || $dayCount > $daysInMonth) {
+                    echo '<div style="background: white; min-height: 120px;"></div>';
+                } else {
+                    $isToday = ($year == date('Y') && $month == date('m') && $dayCount == date('j'));
+                    $events = $calendarEvents[$dayCount] ?? [];
                     
-                    // Link to Notes page
-                    echo "<a href='?page=appointment_notes&id={$evt['id']}' style='display: block; background: {$color}; color: white; font-size: 0.75rem; padding: 2px 4px; border-radius: 4px; margin-bottom: 2px; text-decoration: none;' title='{$evt['patient_name']} - {$evt['therapy_name']}'>";
-                    echo $title;
-                    echo "</a>";
+                    $dayFormat = str_pad($dayCount, 2, '0', STR_PAD_LEFT);
+                    $linkDate = "$year-$month-$dayFormat";
+                    
+                    echo '<div style="background: white; min-height: 120px; padding: 0.5rem; border: 1px solid #f3f4f6; position: relative;">';
+                    echo "<div style='font-weight: bold; margin-bottom: 0.5rem; cursor: pointer; " . ($isToday ? 'color: var(--primary-color);' : '') . "' onclick=\"window.location.href='?page=schedule&view=day&date=$linkDate&prof_filter=$profFilter'\">" . $dayCount . "</div>";
+                    
+                    foreach ($events as $evt) {
+                        $color = $evt['therapy_color'] ?? 'var(--primary-color)';
+                        if ($evt['status'] == 'completed') {
+                            $color = '#10B981'; // Override completed to green
+                        }
+                        $title = date('H:i', strtotime($evt['start_time'])) . ' - ' . substr($evt['patient_name'], 0, 10);
+                        
+                        echo "<a href='?page=appointment_notes&id={$evt['id']}' style='display: block; background: {$color}; color: white; font-size: 0.75rem; padding: 2px 4px; border-radius: 4px; margin-bottom: 2px; text-decoration: none;' title='{$evt['patient_name']} - {$evt['therapy_name']}'>";
+                        echo $title;
+                        echo "</a>";
+                    }
+                    
+                    echo '</div>';
+                    $dayCount++;
                 }
-                
-                echo '</div>';
-                $dayCount++;
             }
-        }
-        ?>
+            ?>
+        </div>
+    <?php else: ?>
+        <!-- Day View -->
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: var(--radius-md); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; min-height: 500px;">
+            <?php 
+            // In day view, all events fall under day 1 because we forced startDate and endDate in the query.
+            // Oh wait, $calendarEvents uses date('j'). So we need to find them directly from $appointments
+            if (empty($appointments)): 
+            ?>
+                <div style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">Nenhum agendamento para este dia.</div>
+            <?php else: ?>
+                <?php foreach ($appointments as $evt): 
+                    $color = $evt['therapy_color'] ?? 'var(--primary-color)';
+                    $isCompleted = $evt['status'] === 'completed';
+                    if ($isCompleted) $color = '#10B981';
+                ?>
+                    <a href="?page=appointment_notes&id=<?= $evt['id'] ?>" style="display: flex; align-items: stretch; border: 1px solid #e5e7eb; border-radius: var(--radius-md); overflow: hidden; text-decoration: none; color: inherit; transition: transform 0.1s;" onmouseover="this.style.transform='translateX(4px)'" onmouseout="this.style.transform=''">
+                        <div style="background: <?= $color ?>; width: 6px;"></div>
+                        <div style="flex: 1; padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3 style="margin: 0 0 0.25rem 0;"><?= date('H:i', strtotime($evt['start_time'])) ?> - <?= date('H:i', strtotime($evt['end_time'])) ?></h3>
+                                <div style="font-weight: 600; color: var(--text-primary);"><?= htmlspecialchars($evt['patient_name']) ?></div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);"><?= htmlspecialchars($evt['therapy_name']) ?>  <span style="margin: 0 0.5rem;">|</span>  <?= htmlspecialchars($evt['professional_name']) ?></div>
+                            </div>
+                            <?php if ($isCompleted): ?>
+                                <span style="background: #DEF7EC; color: #03543F; padding: 0.25rem 0.75rem; border-radius: var(--radius-md); font-size: 0.8rem; font-weight: 600;"><i class="fa-solid fa-check"></i> Concluído</span>
+                            <?php else: ?>
+                                <span style="background: #FEF3C7; color: #D97706; padding: 0.25rem 0.75rem; border-radius: var(--radius-md); font-size: 0.8rem; font-weight: 600;">Agendado</span>
+                            <?php endif; ?>
+                        </div>
+                    </a>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
     </div>
 
-    <!-- Quick Add Form -->
+    <!-- Quick Add Form (Only Admins) -->
+    <?php if (AuthController::isAdmin()): ?>
     <div class="card">
         <h3>Novo Agendamento</h3>
         <form method="POST">
             <div class="form-group">
                 <label>Paciente</label>
-                <select name="patient_id" required>
+                <select name="patient_id" id="patientSelect" required onchange="fetchPatientTherapies()">
                     <option value="">Selecione...</option>
                     <?php foreach ($patients as $p): ?>
                         <option value="<?= $p['id'] ?>"><?= htmlspecialchars($p['name']) ?></option>
@@ -159,10 +269,7 @@ $nextYear = date('Y', strtotime("$startDate +1 month"));
             <div class="form-group">
                 <label>Terapia</label>
                 <select name="therapy_id" id="therapySelect" required onchange="filterProfessionals()">
-                    <option value="">Selecione...</option>
-                    <?php foreach ($therapies as $t): ?>
-                        <option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['name']) ?></option>
-                    <?php endforeach; ?>
+                    <option value="">Selecione o paciente primeiro...</option>
                 </select>
             </div>
             
@@ -178,7 +285,7 @@ $nextYear = date('Y', strtotime("$startDate +1 month"));
             
              <div class="form-group">
                 <label>Data e Hora</label>
-                <input type="datetime-local" name="start_time" required value="<?= date('Y-m-d\T08:00') ?>">
+                <input type="datetime-local" id="startTimeInput" name="start_time" required value="<?= date('Y-m-d\T08:00') ?>" onchange="fetchPatientTherapies()">
             </div>
             
             <div class="form-group">
@@ -189,12 +296,62 @@ $nextYear = date('Y', strtotime("$startDate +1 month"));
             <button type="submit" class="btn btn-primary" style="width: 100%;">Agendar</button>
         </form>
     </div>
+    <?php else: ?>
+    <div></div>
+    <?php endif; ?>
 </div>
 
 <script>
 // Map of Therapy ID -> [Professional IDs]
 const therapyMap = <?= json_encode($therapyProfs) ?>;
 const allProfs = <?= json_encode($professionals) ?>;
+
+async function fetchPatientTherapies() {
+    const patientId = document.getElementById('patientSelect').value;
+    const startTimeRaw = document.getElementById('startTimeInput').value;
+    const therapySelect = document.getElementById('therapySelect');
+    const profSelect = document.getElementById('profSelect');
+    
+    // Reset dropdowns
+    therapySelect.innerHTML = '<option value="">Carregando...</option>';
+    profSelect.innerHTML = '<option value="">Selecione a terapia primeiro...</option>';
+    
+    if (!patientId) {
+        therapySelect.innerHTML = '<option value="">Selecione o paciente primeiro...</option>';
+        return;
+    }
+    
+    const date = startTimeRaw ? startTimeRaw.split('T')[0] : '';
+    
+    try {
+        const response = await fetch(`ajax/get_patient_therapies.php?patient_id=${patientId}&date=${date}`);
+        const data = await response.json();
+        
+        therapySelect.innerHTML = '<option value="">Selecione...</option>';
+        
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        
+        if (data.length === 0) {
+            therapySelect.innerHTML = '<option value="">Nenhum pacote ativo para esta data.</option>';
+            return;
+        }
+        
+        data.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.therapy_id;
+            // Mostra o limite de sessões no dropdown
+            option.text = `${item.therapy_name} (Limite: ${item.sessions_per_month}/mês)`;
+            therapySelect.add(option);
+        });
+        
+    } catch (e) {
+        console.error("Erro ao buscar terapias:", e);
+        therapySelect.innerHTML = '<option value="">Erro ao carregar terapias.</option>';
+    }
+}
 
 function filterProfessionals() {
     const therapyId = document.getElementById('therapySelect').value;
