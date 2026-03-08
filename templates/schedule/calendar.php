@@ -170,7 +170,8 @@ $monthName = $monthsPt[$month] ?? date('F', strtotime($startDate));
     </div>
 <?php endif; ?>
 
-<div style="display: grid; grid-template-columns: 3fr 1fr; gap: 2rem;">
+<?php $gridStyle = AuthController::isAdmin() ? 'grid-template-columns: 3fr 1fr;' : 'grid-template-columns: 1fr;'; ?>
+<div style="display: grid; <?= $gridStyle ?> gap: 2rem;">
     <!-- Calendar Grid -->
     <?php if ($view === 'month'): ?>
         <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: var(--radius-md); overflow: hidden;">
@@ -296,8 +297,6 @@ $monthName = $monthsPt[$month] ?? date('F', strtotime($startDate));
             <button type="submit" class="btn btn-primary" style="width: 100%;">Agendar</button>
         </form>
     </div>
-    <?php else: ?>
-    <div></div>
     <?php endif; ?>
 </div>
 
