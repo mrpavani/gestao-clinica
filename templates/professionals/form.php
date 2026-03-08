@@ -1,11 +1,18 @@
 <?php
 // templates/professionals/form.php
 $controller = new ProfessionalController();
+require_once __DIR__ . '/../../src/Controllers/SpecialtyController.php';
+require_once __DIR__ . '/../../src/Controllers/AuthController.php';
+$specialtyController = new SpecialtyController();
+$authController = new AuthController();
+$allSpecialties = $specialtyController->getAll();
+
 $message = '';
 $error = '';
 $id = $_GET['id'] ?? null;
 $professional = null;
 $skills = [];
+$profSpecialties = [];
 
 if ($id) {
     $professional = $controller->getById($id);
@@ -14,21 +21,26 @@ if ($id) {
         echo "Profissional não encontrado.";
         exit;
     }
+    if (!empty($professional['specialties'])) {
+        $profSpecialties = array_column($professional['specialties'], 'id');
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = $_POST['name'] ?? '';
-    $specialty = $_POST['specialty'] ?? '';
-    $email = $_POST['email'] ?? null;
-    $hours = $_POST['max_weekly_hours'] ?? 40;
+    // specialty checkboxes
+    $selectedSpecialties = $_POST['specialties'] ?? [];
     $newSkills = $_POST['skills'] ?? [];
+    
+    // user auto-create fields
+    $username = $_POST['username'] ?? '';
+    $password = $_POST['password'] ?? '';
 
-    if ($name && $specialty) {
+    if ($name) {
         if ($id) {
             // Edit
-            if ($controller->update($id, $name, $specialty, $hours, $email)) {
+            if ($controller->update($id, $name, $selectedSpecialties)) {
                 // Update skills
-                // First, delete existing skills then re-add
                 foreach ($skills as $skill) {
                     $controller->removeSkill($skill['id']);
                 }
@@ -44,18 +56,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } else {
             // Create
-            $newId = $controller->create($name, $specialty, $hours, $email);
-            if ($newId) {
-                // Add skills
-                foreach ($newSkills as $skill) {
-                    if (!empty($skill['name'])) {
-                        $controller->addSkill($newId, $skill['name'], $skill['type']);
-                    }
-                }
-                header("Location: ?page=professionals");
-                exit;
+            if (empty($username) || empty($password)) {
+                $error = 'Para cadastrar um novo profissional, é necessário informar um Nome de Usuário e Senha de acesso.';
             } else {
-                $error = 'Erro ao cadastrar profissional. Pode haver um profissional com este nome já cadastrado.';
+                $newId = $controller->create($name, $selectedSpecialties);
+                if ($newId) {
+                    // Add skills
+                    foreach ($newSkills as $skill) {
+                        if (!empty($skill['name'])) {
+                            $controller->addSkill($newId, $skill['name'], $skill['type']);
+                        }
+                    }
+                    
+                    // Add user auto-generation
+                    $userRes = $authController->createUser($username, $password, 'professional', $newId);
+                    if (!$userRes['success']) {
+                        // User creation failed, but professional created. Should handle gracefully or delete prof to rollback.
+                        // Setting error and preventing redirect so user can see it
+                        $error = 'Profissional cadastrado, mas falha ao criar o acesso do usuário: ' . $userRes['message'];
+                    } else {
+                        header("Location: ?page=professionals");
+                        exit;
+                    }
+                } else {
+                    $error = 'Erro ao cadastrar profissional. Pode haver um profissional com este nome já cadastrado.';
+                }
             }
         }
     } else {
@@ -92,19 +117,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="text" id="name" name="name" required placeholder="Ex: Dra. Ana Silva" value="<?= $professional ? htmlspecialchars($professional['name']) : '' ?>">
         </div>
 
-        <div class="form-group">
-            <label for="specialty">Especialidade Principal *</label>
-            <input type="text" id="specialty" name="specialty" required placeholder="Ex: Fonoaudiologia" value="<?= $professional ? htmlspecialchars($professional['specialty']) : '' ?>">
+        <?php if (!$id): ?>
+        <hr style="margin: 1.5rem 0; border: none; border-top: 1px dashed #E5E7EB;">
+        <h4 style="margin-bottom: 1rem; color: var(--primary-color);">Acesso ao Sistema</h4>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.85rem;">
+            O profissional receberá o perfil "Profissional" e poderá ver apenas os seus próprios agendamentos.
+        </p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="username">Nome de Usuário do Profissional *</label>
+                <input type="text" id="username" name="username" placeholder="ex: ana.silva" <?= !$id ? 'required' : '' ?>>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Senha de Acesso *</label>
+                <input type="text" id="password" name="password" placeholder="Mínimo 6 caracteres" minlength="6" <?= !$id ? 'required' : '' ?>>
+            </div>
         </div>
+        <hr style="margin: 1.5rem 0; border: none; border-top: 1px dashed #E5E7EB;">
+        <?php endif; ?>
 
         <div class="form-group">
-            <label for="email">E-mail</label>
-            <input type="email" id="email" name="email" placeholder="profissional@email.com" value="<?= $professional ? htmlspecialchars($professional['email'] ?? '') : '' ?>">
-        </div>
-
-        <div class="form-group">
-            <label for="max_weekly_hours">Carga Horária Semanal (Horas) *</label>
-            <input type="number" id="max_weekly_hours" name="max_weekly_hours" value="<?= $professional ? $professional['max_weekly_hours'] : 40 ?>" min="1" max="168">
+            <label>Especialidades *</label>
+            <div style="background: #F9FAFB; padding: 1rem; border-radius: var(--radius-md); border: 1px solid #E5E7EB; display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+                <?php if(empty($allSpecialties)): ?>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0;">Nenhuma especialidade cadastrada. <a href="?page=specialties_new" style="color: var(--primary-color);">Cadastrar agora</a>.</p>
+                <?php else: ?>
+                    <?php foreach($allSpecialties as $spec): ?>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0; font-weight: normal; cursor: pointer;">
+                            <input type="checkbox" name="specialties[]" value="<?= $spec['id'] ?>" <?= in_array($spec['id'], $profSpecialties) ? 'checked' : '' ?> style="width: auto;">
+                            <?= htmlspecialchars($spec['name']) ?>
+                        </label>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
         </div>
 
         <hr style="margin: 2rem 0; border: none; border-top: 1px solid #E5E7EB;">
