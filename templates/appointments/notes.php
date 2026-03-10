@@ -28,12 +28,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $content = $_POST['content'];
     $type = $_POST['type'];
     
-    if ($apptController->saveEvolution($id, $content, $type)) {
-        // Redirect back to calendar or stay
-        header("Location: ?page=schedule&success=1");
-        exit;
+    if (!$planning) {
+        $message = "O paciente não possui um PEI (Planejamento) ativo para esta terapia. O preenchimento do PEI é obrigatório para registrar a avaliação/evolução.";
     } else {
-        $message = "Erro ao salvar evolução.";
+        if ($apptController->saveEvolution($id, $content, $type)) {
+            // Redirect back to calendar or stay
+            header("Location: ?page=schedule&success=1");
+            exit;
+        } else {
+            $message = "Erro ao salvar evolução.";
+        }
     }
 }
 ?>
@@ -44,6 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <i class="fa-solid fa-arrow-left"></i> Voltar
     </a>
 </header>
+
+<?php if ($message): ?>
+    <div style="background-color: #fee2e2; border-left: 4px solid #ef4444; color: #b91c1c; padding: 1rem; margin-bottom: 1rem; border-radius: 0.25rem;">
+        <?= htmlspecialchars($message) ?>
+    </div>
+<?php endif; ?>
     
 <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
     <!-- Context Column -->

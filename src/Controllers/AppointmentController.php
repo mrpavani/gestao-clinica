@@ -131,15 +131,7 @@ class AppointmentController {
             return ['success' => false, 'error' => "Limite de sessões ($limit/mês) atingido para esta terapia neste mês."];
         }
 
-        // 3. Check if PEI exists for this therapy
-        if (!$patientController->hasActivePlanning($patientId, $therapyId)) {
-            // Need to fetch therapy name for better error message
-            $stmt = $this->pdo->prepare("SELECT name FROM therapies WHERE id = ?");
-            $stmt->execute([$therapyId]);
-            $tName = $stmt->fetchColumn();
-            
-            return ['success' => false, 'error' => "Bloqueado: O paciente não possui um PEI (Planejamento) ativo para a terapia: $tName."];
-        }
+        // 3. (Removed PEI checkout requirement here, it is now required for evaluation notes)
 
         // 4. Conflict Check (Professional)
         if ($this->hasConflict($professionalId, $startStr, $endStr)) {
