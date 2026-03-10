@@ -172,9 +172,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_package'])) {
         <a href="?page=schedule" class="btn" style="width: 100%; justify-content: center; background: #e0f2fe; color: var(--primary-color); border: 1px solid #bae6fd; margin-bottom: 0.5rem;">
             <i class="fa-regular fa-calendar-plus"></i> Agendar Consulta
         </a>
-        <button onclick="openModal('newPackageModal')" class="btn" style="width: 100%; justify-content: center; background: #f3f4f6; color: var(--text-primary); border: 1px solid #d1d5db;">
-            <i class="fa-solid fa-file-contract"></i> Novo Contrato
-        </button>
+        <a href="?page=patient_edit_plan&id=<?= $patientId ?>" class="btn" style="width: 100%; justify-content: center; background: #FFF7ED; color: #9A3412; border: 1px solid #FED7AA;">
+            <i class="fa-solid fa-file-contract"></i> Editar Contrato e PEI
+        </a>
     </div>
 
     <!-- Right Column: Weekly Calendar -->

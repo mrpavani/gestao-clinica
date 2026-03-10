@@ -86,13 +86,13 @@ class TherapyController {
         }
     }
 
-    public function create($name, $duration, $professionalIds = [], $documents = []) {
+    public function create($name, $duration, $color, $professionalIds = [], $documents = []) {
         try {
             $this->pdo->beginTransaction();
 
-            $sql = "INSERT INTO therapies (name, default_duration_minutes) VALUES (?, ?)";
+            $sql = "INSERT INTO therapies (name, default_duration_minutes, color) VALUES (?, ?, ?)";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$name, $duration]);
+            $stmt->execute([$name, $duration, $color]);
             
             $therapyId = $this->pdo->lastInsertId();
             $this->syncProfessionals($therapyId, $professionalIds);
@@ -106,13 +106,13 @@ class TherapyController {
         }
     }
     
-    public function update($id, $name, $duration, $professionalIds = [], $documents = []) {
+    public function update($id, $name, $duration, $color, $professionalIds = [], $documents = []) {
         try {
             $this->pdo->beginTransaction();
 
-            $sql = "UPDATE therapies SET name = ?, default_duration_minutes = ? WHERE id = ?";
+            $sql = "UPDATE therapies SET name = ?, default_duration_minutes = ?, color = ? WHERE id = ?";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$name, $duration, $id]);
+            $stmt->execute([$name, $duration, $color, $id]);
             
             // Delete existing links and re-add (simple sync)
             $this->pdo->prepare("DELETE FROM professional_therapies WHERE therapy_id = ?")->execute([$id]);
@@ -139,7 +139,15 @@ class TherapyController {
     }
     
     public function getAvailableProfessionals() {
-        $stmt = $this->pdo->query("SELECT id, name, specialty FROM professionals ORDER BY name ASC");
+        // Obter profissionais disponíveis concatenando suas especialidades
+        $sql = "SELECT p.id, p.name, 
+                GROUP_CONCAT(s.name SEPARATOR ', ') as specialty
+                FROM professionals p
+                LEFT JOIN professional_specialties ps ON p.id = ps.professional_id
+                LEFT JOIN specialties s ON ps.specialty_id = s.id
+                GROUP BY p.id
+                ORDER BY p.name ASC";
+        $stmt = $this->pdo->query($sql);
         return $stmt->fetchAll();
     }
     

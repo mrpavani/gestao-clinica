@@ -18,24 +18,61 @@ class ProfessionalController {
         } else {
             $stmt = $this->pdo->query("SELECT * FROM professionals ORDER BY name ASC");
         }
-        return $stmt->fetchAll();
+        $professionals = $stmt->fetchAll();
+        
+        foreach ($professionals as &$prof) {
+            $stmtSpec = $this->pdo->prepare("
+                SELECT s.* 
+                FROM specialties s 
+                JOIN professional_specialties ps ON s.id = ps.specialty_id 
+                WHERE ps.professional_id = ?
+            ");
+            $stmtSpec->execute([$prof['id']]);
+            $prof['specialties'] = $stmtSpec->fetchAll();
+        }
+        return $professionals;
     }
 
     public function getById($id) {
         $stmt = $this->pdo->prepare("SELECT * FROM professionals WHERE id = ?");
         $stmt->execute([$id]);
-        return $stmt->fetch();
+        $prof = $stmt->fetch();
+        
+        if ($prof) {
+            $stmtSpec = $this->pdo->prepare("
+                SELECT s.* 
+                FROM specialties s 
+                JOIN professional_specialties ps ON s.id = ps.specialty_id 
+                WHERE ps.professional_id = ?
+            ");
+            $stmtSpec->execute([$id]);
+            $prof['specialties'] = $stmtSpec->fetchAll();
+        }
+        
+        return $prof;
     }
 
-    public function create($name, $specialty, $max_weekly_hours, $email = null) {
+    public function create($name, $specialtiesIds = []) {
         try {
+            $this->pdo->beginTransaction();
             $branchId = $_SESSION['branch_id'] ?? null;
-            $sql = "INSERT INTO professionals (name, specialty, email, max_weekly_hours, branch_id) VALUES (?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO professionals (name, branch_id) VALUES (?, ?)";
             $stmt = $this->pdo->prepare($sql);
-            $result = $stmt->execute([$name, $specialty, $email, $max_weekly_hours, $branchId]);
-            return $result ? $this->pdo->lastInsertId() : false;
+            $stmt->execute([$name, $branchId]);
+            $profId = $this->pdo->lastInsertId();
+            
+            if (!empty($specialtiesIds)) {
+                $sqlSpec = "INSERT INTO professional_specialties (professional_id, specialty_id) VALUES (?, ?)";
+                $stmtSpec = $this->pdo->prepare($sqlSpec);
+                foreach ($specialtiesIds as $sid) {
+                    $stmtSpec->execute([$profId, $sid]);
+                }
+            }
+            
+            $this->pdo->commit();
+            return $profId;
         } catch (PDOException $e) {
-            // Check for duplicate entry
+            $this->pdo->rollBack();
             if ($e->getCode() == 23000) {
                 return false;
             }
@@ -43,12 +80,28 @@ class ProfessionalController {
         }
     }
 
-    public function update($id, $name, $specialty, $max_weekly_hours, $email = null) {
+    public function update($id, $name, $specialtiesIds = []) {
         try {
-            $sql = "UPDATE professionals SET name = ?, specialty = ?, email = ?, max_weekly_hours = ? WHERE id = ?";
+            $this->pdo->beginTransaction();
+            $sql = "UPDATE professionals SET name = ? WHERE id = ?";
             $stmt = $this->pdo->prepare($sql);
-            return $stmt->execute([$name, $specialty, $email, $max_weekly_hours, $id]);
+            $stmt->execute([$name, $id]);
+
+            // Replace specialties
+            $this->pdo->prepare("DELETE FROM professional_specialties WHERE professional_id = ?")->execute([$id]);
+            
+            if (!empty($specialtiesIds)) {
+                $sqlSpec = "INSERT INTO professional_specialties (professional_id, specialty_id) VALUES (?, ?)";
+                $stmtSpec = $this->pdo->prepare($sqlSpec);
+                foreach ($specialtiesIds as $sid) {
+                    $stmtSpec->execute([$id, $sid]);
+                }
+            }
+
+            $this->pdo->commit();
+            return true;
         } catch (PDOException $e) {
+            $this->pdo->rollBack();
             if ($e->getCode() == 23000) {
                 return false;
             }
@@ -122,5 +175,35 @@ class ProfessionalController {
             $prof['skills'] = $this->getSkills($prof['id']);
         }
         return $professionals;
+    }
+
+    // Schedule Management
+    public function getSchedules($professional_id) {
+        $sql = "SELECT * FROM professional_schedules WHERE professional_id = ? ORDER BY day_of_week ASC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$professional_id]);
+        return $stmt->fetchAll();
+    }
+
+    public function saveSchedules($professional_id, $schedules) {
+        $this->pdo->beginTransaction();
+        try {
+            $stmt = $this->pdo->prepare("DELETE FROM professional_schedules WHERE professional_id = ?");
+            $stmt->execute([$professional_id]);
+
+            $sql = "INSERT INTO professional_schedules (professional_id, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?)";
+            $stmt = $this->pdo->prepare($sql);
+            
+            foreach ($schedules as $day => $time) {
+                if (!empty($time['active']) && !empty($time['start']) && !empty($time['end'])) {
+                    $stmt->execute([$professional_id, $day, $time['start'], $time['end']]);
+                }
+            }
+            $this->pdo->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            return false;
+        }
     }
 }

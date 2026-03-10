@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS patients (
 CREATE TABLE IF NOT EXISTS therapies (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    default_duration_minutes INT DEFAULT 60
+    default_duration_minutes INT DEFAULT 60,
+    color VARCHAR(7) DEFAULT '#3B82F6'
 );
 
 CREATE TABLE IF NOT EXISTS professionals (
@@ -61,3 +62,5 @@ CREATE TABLE IF NOT EXISTS appointments (
     FOREIGN KEY (professional_id) REFERENCES professionals(id) ON DELETE CASCADE,
     FOREIGN KEY (therapy_id) REFERENCES therapies(id) ON DELETE CASCADE
 );
+ALTER TABLE users ADD COLUMN reset_token VARCHAR(255) DEFAULT NULL;
+ALTER TABLE users ADD COLUMN reset_token_expires DATETIME DEFAULT NULL;

@@ -21,6 +21,7 @@ if ($id) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = $_POST['name'] ?? '';
     $duration = $_POST['duration'] ?? 60;
+    $color = $_POST['color'] ?? '#3B82F6';
     $selectedProfessionals = $_POST['professionals'] ?? [];
 
     // Process Documents
@@ -39,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($name) {
         if ($id) {
-            if ($controller->update($id, $name, $duration, $selectedProfessionals, $documents)) {
+            if ($controller->update($id, $name, $duration, $color, $selectedProfessionals, $documents)) {
                 // Redirect to list
                 header("Location: ?page=therapies");
                 exit;
@@ -47,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Erro ao atualizar terapia.';
             }
         } else {
-            if ($controller->create($name, $duration, $selectedProfessionals, $documents)) {
+            if ($controller->create($name, $duration, $color, $selectedProfessionals, $documents)) {
                 // Redirect to list
                 header("Location: ?page=therapies");
                 exit;
@@ -82,14 +83,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form method="POST">
+<?php
+    require_once __DIR__ . '/../../src/Controllers/SpecialtyController.php';
+    $specialtyController = new SpecialtyController();
+    $specialtiesList = $specialtyController->getAll();
+?>
         <div class="form-group">
-            <label for="name">Nome da Terapia</label>
-            <input type="text" id="name" name="name" required placeholder="Ex: Fonoaudiologia" value="<?= $therapy ? htmlspecialchars($therapy['name']) : '' ?>" autocomplete="off">
+            <label for="name">Especialidade (Terapia)</label>
+            <select id="name" name="name" required>
+                <option value="">Selecione uma especialidade...</option>
+                <?php foreach ($specialtiesList as $spec): ?>
+                    <option value="<?= htmlspecialchars($spec['name']) ?>" <?= ($therapy && $therapy['name'] == $spec['name']) ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($spec['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
         </div>
 
         <div class="form-group">
             <label for="duration">Duração Padrão (minutos - máx 60)</label>
             <input type="number" id="duration" name="duration" min="15" max="60" value="<?= $therapy ? $therapy['default_duration_minutes'] : 45 ?>">
+        </div>
+        
+        <!-- COLOR SECTION -->
+        <div class="form-group">
+            <label for="color">Cor da Terapia (Exibida na Agenda)</label>
+            <input type="color" id="color" name="color" value="<?= $therapy ? htmlspecialchars($therapy['color']) : '#3B82F6' ?>" style="width: 100px; height: 40px; padding: 0.25rem; cursor: pointer;">
         </div>
         
         <!-- DOCUMENTS SECTION -->

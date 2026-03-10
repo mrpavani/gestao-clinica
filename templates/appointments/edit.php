@@ -65,8 +65,14 @@ $duration = ($end->getTimestamp() - $start->getTimestamp()) / 60;
             <label>Profissional</label>
             <select name="professional_id" required>
                 <?php foreach ($professionals as $p): ?>
+                    <?php 
+                        $specText = '';
+                        if (!empty($p['specialties'])) {
+                            $specText = implode(', ', array_column($p['specialties'], 'name'));
+                        }
+                    ?>
                     <option value="<?= $p['id'] ?>" <?= $p['id'] == $appt['professional_id'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($p['name']) ?> - <?= htmlspecialchars($p['specialty']) ?>
+                        <?= htmlspecialchars($p['name']) ?> <?= $specText ? '- ' . htmlspecialchars($specText) : '' ?>
                     </option>
                 <?php endforeach; ?>
             </select>

@@ -73,7 +73,7 @@
             <p class="login-subtitle">Sistema de Gestão Clínica</p>
         </div>
 
-        <?php if (isset($_GET['error'])): ?>
+        <?php if (isset($_GET['error']) && in_array($_GET['error'], ['invalid', 'logout', 'unauthorized'])): ?>
             <div class="error-message">
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <?php
@@ -81,14 +81,14 @@
                         echo 'Usuário ou senha inválidos.';
                     } elseif ($_GET['error'] === 'logout') {
                         echo 'Você foi desconectado com sucesso.';
-                    } else {
-                        echo 'Faça login para continuar.';
+                    } elseif ($_GET['error'] === 'unauthorized') {
+                        echo 'Acesso restrito.';
                     }
                 ?>
             </div>
         <?php endif; ?>
 
-        <form method="POST" action="?page=login_action">
+        <form method="POST" action="?page=login_action" autocomplete="off">
             <div class="form-group">
                 <label for="username">
                     <i class="fa-solid fa-user"></i> Usuário
@@ -100,6 +100,8 @@
                     required 
                     autofocus
                     placeholder="Digite seu nome de usuário"
+                    autocomplete="off"
+                    value=""
                 >
             </div>
 
@@ -113,17 +115,31 @@
                     name="password" 
                     required
                     placeholder="Digite sua senha"
+                    autocomplete="new-password"
+                    value=""
                 >
             </div>
 
             <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
                 <i class="fa-solid fa-right-to-bracket"></i> Entrar
             </button>
+            <div style="text-align: center; margin-top: 1rem;">
+                <a href="?page=forgot_password" style="color: var(--primary-color); font-size: 0.9rem; text-decoration: none;">Esqueceu a senha?</a>
+            </div>
         </form>
 
         <div class="form-footer">
             <p>&copy; 2026 Nexo System. Todos os direitos reservados.</p>
         </div>
     </div>
+    <script>
+        // Force clear fields on page load for aggressive password managers
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+            }, 100);
+        });
+    </script>
 </body>
 </html>

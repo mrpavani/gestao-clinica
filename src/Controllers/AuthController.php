@@ -156,6 +156,43 @@ class AuthController {
     }
 
     /**
+     * Update user data (admin only)
+     */
+    public function updateUser($user_id, $username, $password, $role, $professional_id = null) {
+        if (!self::isAdmin()) {
+            return ['success' => false, 'message' => 'Acesso negado.'];
+        }
+
+        if (empty($username)) {
+            return ['success' => false, 'message' => 'Nome de usuário é obrigatório.'];
+        }
+
+        // Check if username already taken by another user
+        $stmt = $this->pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
+        $stmt->execute([$username, $user_id]);
+        if ($stmt->fetch()) {
+            return ['success' => false, 'message' => 'Esse nome de usuário já está em uso.'];
+        }
+
+        try {
+            if (!empty($password)) {
+                if (strlen($password) < 6) {
+                    return ['success' => false, 'message' => 'A senha deve ter pelo menos 6 caracteres.'];
+                }
+                $password_hash = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $this->pdo->prepare("UPDATE users SET username = ?, password_hash = ?, role = ?, professional_id = ? WHERE id = ?");
+                $stmt->execute([$username, $password_hash, $role, $professional_id ?: null, $user_id]);
+            } else {
+                $stmt = $this->pdo->prepare("UPDATE users SET username = ?, role = ?, professional_id = ? WHERE id = ?");
+                $stmt->execute([$username, $role, $professional_id ?: null, $user_id]);
+            }
+            return ['success' => true, 'message' => 'Usuário atualizado com sucesso!'];
+        } catch (Exception $e) {
+            return ['success' => false, 'message' => 'Erro ao atualizar usuário: ' . $e->getMessage()];
+        }
+    }
+
+    /**
      * Change password
      */
     public function changePassword($user_id, $current_password, $new_password) {
@@ -175,6 +212,10 @@ class AuthController {
             }
         }
 
+        if (strlen($new_password) < 6) {
+            return ['success' => false, 'message' => 'A nova senha deve ter pelo menos 6 caracteres.'];
+        }
+
         $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
         $stmt = $this->pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
         
@@ -183,6 +224,72 @@ class AuthController {
             return ['success' => true, 'message' => 'Senha alterada com sucesso!'];
         } catch (Exception $e) {
             return ['success' => false, 'message' => 'Erro ao alterar senha.'];
+        }
+    }
+
+    /**
+     * Generate password reset token
+     */
+    public function generateResetToken($username) {
+        $stmt = $this->pdo->prepare("SELECT id FROM users WHERE username = ? AND active = 1");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            // For security, don't reveal if user exists, just return generic success in real apps.
+            // But here we might want to guide the user a bit.
+            return ['success' => false, 'message' => 'Usuário não encontrado.'];
+        }
+
+        $token = bin2hex(random_bytes(32));
+        $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+        $stmt = $this->pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?");
+        try {
+            $stmt->execute([$token, $expires, $user['id']]);
+            return ['success' => true, 'token' => $token];
+        } catch (Exception $e) {
+            return ['success' => false, 'message' => 'Erro ao gerar token.'];
+        }
+    }
+
+    /**
+     * Validate token
+     */
+    public function validateResetToken($token) {
+        $stmt = $this->pdo->prepare("SELECT id FROM users WHERE reset_token = ? AND reset_token_expires > NOW()");
+        $stmt->execute([$token]);
+        return $stmt->fetch() !== false;
+    }
+
+    /**
+     * Reset password using token
+     */
+    public function resetPasswordWithToken($token, $new_password) {
+        if (strlen($new_password) < 6) {
+            return ['success' => false, 'message' => 'A nova senha deve ter pelo menos 6 caracteres.'];
+        }
+
+        $stmt = $this->pdo->prepare("SELECT id FROM users WHERE reset_token = ? AND reset_token_expires > NOW()");
+        $stmt->execute([$token]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            return ['success' => false, 'message' => 'Token inválido ou expirado.'];
+        }
+
+        $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+        
+        try {
+            $this->pdo->beginTransaction();
+            // Update password and clear token
+            $stmt = $this->pdo->prepare("UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?");
+            $stmt->execute([$password_hash, $user['id']]);
+            $this->pdo->commit();
+            return ['success' => true, 'message' => 'Senha redefinida com sucesso!'];
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            return ['success' => false, 'message' => 'Erro ao redefinir senha.'];
         }
     }
 }

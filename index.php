@@ -54,8 +54,9 @@ try {
         exit;
     }
     
-    // Check authentication for all pages except login and select_branch
-    if ($page !== 'login' && $page !== 'select_branch' && !AuthController::isAuthenticated()) {
+    // Check authentication for all pages except public
+    $publicPages = ['login', 'login_action', 'select_branch', 'forgot_password', 'reset_password'];
+    if (!in_array($page, $publicPages) && !AuthController::isAuthenticated()) {
         header('Location: ?page=login&error=unauthorized');
         exit;
     }
@@ -90,7 +91,8 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <?php if ($page !== 'login' && $page !== 'select_branch'): ?>
+    <?php $hideNavPages = ['login', 'select_branch', 'forgot_password', 'reset_password']; ?>
+    <?php if (!in_array($page, $hideNavPages)): ?>
     <nav class="sidebar">
         <div class="brand">
             <img src="public/assets/img/logo.png" alt="Nexo Logo" class="brand-logo">
@@ -150,6 +152,11 @@ try {
                 <i class="fa-solid fa-circle-user"></i>
                 <span><?= htmlspecialchars($currentUser['username'] ?? '') ?></span>
             </div>
+            
+            <a href="?page=change_password" class="btn" style="margin-bottom: 0.5rem; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: white;">
+                <i class="fa-solid fa-key"></i> Alterar Senha
+            </a>
+            
             <?php if (AuthController::isAdmin()): ?>
             <a href="?page=branches" class="btn">
                 <i class="fa-solid fa-building"></i> Gerenciar Filiais
@@ -158,7 +165,7 @@ try {
                 <i class="fa-solid fa-users-gear"></i> Gerenciar Usuários
             </a>
             <?php endif; ?>
-            <a href="?page=logout" class="btn">
+            <a href="?page=logout" class="btn" style="background: #ef4444; color: white;">
                 <i class="fa-solid fa-right-from-bracket"></i> Sair
             </a>
         </div>
@@ -166,7 +173,7 @@ try {
 
     <main class="main-content">
     <?php else: ?>
-    <!-- Login page renders its own complete layout -->
+    <!-- Full screen page renders its own complete layout -->
     <?php endif; ?>
         <?php
         // Simple View Router
@@ -176,6 +183,14 @@ try {
         switch($page) {
             case 'login':
                 require_once __DIR__ . '/templates/auth/login.php';
+                break;
+
+            case 'forgot_password':
+                require_once __DIR__ . '/templates/auth/forgot_password.php';
+                break;
+
+            case 'reset_password':
+                require_once __DIR__ . '/templates/auth/reset_password.php';
                 break;
             
             case 'select_branch':
@@ -340,12 +355,61 @@ try {
                 if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 include __DIR__ . '/templates/auth/users_list.php';
                 break;
+
+            case 'user_edit':
+                if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
+                include __DIR__ . '/templates/auth/user_edit.php';
+                break;
+                
+            case 'change_password':
+                include __DIR__ . '/templates/auth/change_password.php';
+                break;
+
+            case 'professional_transfer':
+                if (!$isAdmin) { header('Location: ?page=professionals'); exit; }
+                if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                    $profId = $_POST['professional_id'] ?? null;
+                    $newBranchId = $_POST['new_branch_id'] ?? null;
+                    if ($profId && $newBranchId) {
+                        $transferController = new ProfessionalController();
+                        if ($transferController->changeBranch($profId, $newBranchId)) {
+                            header('Location: ?page=professionals&success=transferred');
+                        } else {
+                            header('Location: ?page=professionals&error=' . urlencode('Erro ao transferir profissional.'));
+                        }
+                    } else {
+                        header('Location: ?page=professionals&error=' . urlencode('Dados inválidos.'));
+                    }
+                } else {
+                    header('Location: ?page=professionals');
+                }
+                exit;
+
+            case 'patient_transfer':
+                if (!$isAdmin) { header('Location: ?page=patients'); exit; }
+                if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                    $patientId = $_POST['patient_id'] ?? null;
+                    $newBranchId = $_POST['new_branch_id'] ?? null;
+                    if ($patientId && $newBranchId) {
+                        $transferController = new PatientController();
+                        if ($transferController->changeBranch($patientId, $newBranchId)) {
+                            header('Location: ?page=patients&success=transferred');
+                        } else {
+                            header('Location: ?page=patients&error=' . urlencode('Erro ao transferir paciente.'));
+                        }
+                    } else {
+                        header('Location: ?page=patients&error=' . urlencode('Dados inválidos.'));
+                    }
+                } else {
+                    header('Location: ?page=patients');
+                }
+                exit;
             default:
                 echo "<h2>Página não encontrada</h2>";
                 break;
         }
         ?>
-    <?php if ($page !== 'login'): ?>
+    <?php if (!in_array($page, $hideNavPages)): ?>
     </main>
     <?php endif; ?>
 </body>

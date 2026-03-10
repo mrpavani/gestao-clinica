@@ -11,7 +11,7 @@ if ($isLocal) {
         'db_host' => 'localhost',
         'db_name' => 'clinic_db',
         'db_user' => 'root',
-        'db_pass' => '', // Adjust if your local setup has a password
+        'db_pass' => 'm@P599152', // Adjust if your local setup has a password
         'db_charset' => 'utf8mb4'
     ];
 } else {

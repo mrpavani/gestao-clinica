@@ -127,20 +127,20 @@ foreach ($therapies as $t) {
         </div>
     <?php endif; ?>
 
-    <form method="POST" id="patientForm" enctype="multipart/form-data">
+    <form method="POST" id="patientForm" enctype="multipart/form-data" autocomplete="off">
         
         <!-- SECTION 1: Personal Data -->
         <h3 style="color: var(--primary-color); margin-bottom: 1rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem;">Dados Pessoais</h3>
         
         <div class="form-group">
             <label for="name">Nome Completo *</label>
-            <input type="text" id="name" name="name" required placeholder="Nome do paciente" value="<?= $patient ? htmlspecialchars($patient['name']) : '' ?>">
+            <input type="text" id="name" name="name" required placeholder="Nome do paciente" value="<?= $patient ? htmlspecialchars($patient['name']) : '' ?>" autocomplete="new-password">
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group">
                 <label for="dob">Data de Nascimento *</label>
-                <input type="date" id="dob" name="dob" required value="<?= $patient ? $patient['dob'] : '' ?>" onchange="checkAge()">
+                <input type="date" id="dob" name="dob" required value="<?= $patient ? $patient['dob'] : '' ?>" onchange="checkAge()" autocomplete="new-password">
             </div>
             <div class="form-group">
                 <label for="contact_info">Contato (Telefone/Email)</label>

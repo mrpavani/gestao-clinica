@@ -245,6 +245,34 @@ class PatientController {
         return $packages;
     }
     
+    public function getActivePackageTherapies($patientId, $date = null) {
+        if (!$date) $date = date('Y-m-d');
+        
+        // Find the active package for this date
+        $sql = "SELECT id FROM patient_packages 
+                WHERE patient_id = ? 
+                AND active = 1 
+                AND start_date <= ? 
+                AND (end_date IS NULL OR end_date >= ?)
+                ORDER BY start_date DESC LIMIT 1";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$patientId, $date, $date]);
+        $packageId = $stmt->fetchColumn();
+        
+        if (!$packageId) {
+            return [];
+        }
+        
+        // Fetch items
+        $sqlItems = "SELECT pi.*, t.name as therapy_name 
+                     FROM package_items pi 
+                     JOIN therapies t ON pi.therapy_id = t.id 
+                     WHERE pi.package_id = ?";
+        $stmtItems = $this->pdo->prepare($sqlItems);
+        $stmtItems->execute([$packageId]);
+        return $stmtItems->fetchAll();
+    }
+    
     // Planning Logic (PEI)
     public function getActivePlanning($patientId, $year, $therapyId) {
         $stmt = $this->pdo->prepare("SELECT * FROM patient_planning WHERE patient_id = ? AND year = ? AND therapy_id = ? AND status = 'active'");
@@ -252,26 +280,45 @@ class PatientController {
         return $stmt->fetch();
     }
     
-    public function getAllPlannings($patientId, $year) {
-        // Fetch all active PEIs for the year, linked to therapies
-        $sql = "SELECT pp.*, t.name as therapy_name 
-                FROM patient_planning pp
-                JOIN therapies t ON pp.therapy_id = t.id
-                WHERE pp.patient_id = ? AND pp.year = ? AND pp.status = 'active'";
+    public function getPlannings($patientId) {
+        $sql = "SELECT p.*, t.name as therapy_name 
+                FROM patient_planning p
+                JOIN therapies t ON p.therapy_id = t.id
+                WHERE p.patient_id = ?
+                ORDER BY p.year DESC, t.name ASC";
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$patientId, $year]);
+        $stmt->execute([$patientId]);
         return $stmt->fetchAll();
     }
-    
-    public function savePlanning($patientId, $year, $therapyId, $goals) {
+
+    public function upsertPEI($patientId, $therapyId, $goals) {
+        $currentYear = date('Y');
+        
+        // Check if an active PEI exists for this year/therapy
+        $stmt = $this->pdo->prepare("SELECT id FROM patient_planning WHERE patient_id = ? AND therapy_id = ? AND year = ? AND status = 'active'");
+        $stmt->execute([$patientId, $therapyId, $currentYear]);
+        $existing = $stmt->fetch();
+        
+        if ($existing) {
+            // Update
+            $update = $this->pdo->prepare("UPDATE patient_planning SET goals = ? WHERE id = ?");
+            return $update->execute([$goals, $existing['id']]);
+        } else {
+            // Insert
+            $insert = $this->pdo->prepare("INSERT INTO patient_planning (patient_id, therapy_id, year, goals) VALUES (?, ?, ?, ?)");
+            return $insert->execute([$patientId, $therapyId, $currentYear, $goals]);
+        }
+    }
+
+    public function addPlanning($patientId, $therapyId, $goals) {
         // Simple upsert logic
-        $existing = $this->getActivePlanning($patientId, $year, $therapyId);
+        $existing = $this->getActivePlanning($patientId, date('Y'), $therapyId);
         if ($existing) {
             $stmt = $this->pdo->prepare("UPDATE patient_planning SET goals = ? WHERE id = ?");
             return $stmt->execute([$goals, $existing['id']]);
         } else {
             $stmt = $this->pdo->prepare("INSERT INTO patient_planning (patient_id, year, therapy_id, goals) VALUES (?, ?, ?, ?)");
-            return $stmt->execute([$patientId, $year, $therapyId, $goals]);
+            return $stmt->execute([$patientId, date('Y'), $therapyId, $goals]);
         }
     }
     

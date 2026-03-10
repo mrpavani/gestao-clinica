@@ -69,6 +69,12 @@ if (isset($_GET['delete_id'])) {
                         <td><?= $user['last_login'] ? date('d/m/Y H:i', strtotime($user['last_login'])) : 'Nunca' ?></td>
                         <td>
                             <?php if ($user['id'] != $_SESSION['user_id']): ?>
+                                <a href="?page=user_edit&id=<?= $user['id'] ?>"
+                                   class="btn"
+                                   style="color: var(--primary-color); padding: 0.5rem;"
+                                   title="Editar">
+                                    <i class="fa-solid fa-pen"></i>
+                                </a>
                                 <a href="?page=users&delete_id=<?= $user['id'] ?>" 
                                    class="btn" 
                                    style="color: var(--danger-color); padding: 0.5rem;" 
@@ -89,40 +95,19 @@ if (isset($_GET['delete_id'])) {
 <div id="userModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
     <div class="card" style="width: 100%; max-width: 500px; margin: 2rem;">
         <h2 style="margin-bottom: 1.5rem;">Novo Usuário</h2>
-        <form method="POST">
+        <form method="POST" autocomplete="off">
             <input type="hidden" name="action" value="create_user">
+            <input type="hidden" name="role" value="admin">
             
             <div class="form-group">
-                <label for="username">Nome de Usuário</label>
-                <input type="text" id="username" name="username" required>
+                <label for="username">Nome de Usuário (Acesso Administrativo)</label>
+                <input type="text" id="username" name="username" required autocomplete="new-password">
             </div>
             
             <div class="form-group">
                 <label for="password">Senha</label>
-                <input type="password" id="password" name="password" required minlength="6">
+                <input type="password" id="password" name="password" required minlength="6" autocomplete="new-password">
                 <small style="color: var(--text-secondary)">Mínimo 6 caracteres</small>
-            </div>
-            
-            <div class="form-group">
-                <label for="role">Função</label>
-                <select id="role" name="role" required onchange="toggleProfessionalSelect(this.value)">
-                    <option value="professional">Profissional</option>
-                    <option value="admin">Administrador</option>
-                </select>
-            </div>
-            
-            <div class="form-group" id="professionalGroup">
-                <label for="professional_id">Profissional *</label>
-                <select id="professional_id" name="professional_id">
-                    <option value="">Selecione...</option>
-                    <?php
-                    $profController = new ProfessionalController();
-                    $professionals = $profController->getAll();
-                    foreach ($professionals as $prof):
-                    ?>
-                        <option value="<?= $prof['id'] ?>"><?= htmlspecialchars($prof['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
             </div>
             
             <div style="display: flex; gap: 1rem; margin-top: 2rem;">
