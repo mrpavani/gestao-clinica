@@ -4,9 +4,9 @@
 
 // Error handling wrapper
 try {
-    // Environment detection
-    // $isProduction = !(isset($_SERVER['SERVER_NAME']) && in_array($_SERVER['SERVER_NAME'], ['localhost', '127.0.0.1']));
-    $isProduction = false; // Forçado para exibir erros na tela
+    // Environment detection: production = anything that is NOT localhost / 127.x
+    $serverName = $_SERVER['SERVER_NAME'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $isProduction = !in_array($serverName, ['localhost', '127.0.0.1', '::1']);
 
     if ($isProduction) {
         // Production: hide errors from visitors, log them instead
@@ -14,6 +14,7 @@ try {
         ini_set('display_startup_errors', 0);
         error_reporting(E_ALL);
         ini_set('log_errors', 1);
+        ini_set('error_log', __DIR__ . '/storage/logs/php_errors.log');
     } else {
         // Local development: show all errors
         ini_set('display_errors', 1);

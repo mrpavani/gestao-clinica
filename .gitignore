@@ -35,3 +35,9 @@ Thumbs.db
 local_db_schema.sql
 migration_pwd_reset.sql
 production_db_update.sql
+
+# Production log files (keep directory via .gitkeep)
+/storage/logs/*.log
+
+# Access notes (should not be in git)
+/config/acesso.txt
