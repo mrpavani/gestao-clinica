@@ -11,17 +11,16 @@ $therapies = $controller->getAll();
     </a>
 </header>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
 <?php if (isset($_GET['success'])): ?>
-    <div style="background: #D1FAE5; color: #065F46; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
-        Operação realizada com sucesso!
-    </div>
+    if (window.UI) UI.showToast('Operação realizada com sucesso!', 'success');
 <?php endif; ?>
-
 <?php if (isset($_GET['error'])): ?>
-    <div style="background: #FEE2E2; color: #991B1B; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
-        <?= htmlspecialchars($_GET['error']) ?>
-    </div>
+    if (window.UI) UI.showToast('<?= addslashes(htmlspecialchars($_GET['error'])) ?>', 'error');
 <?php endif; ?>
+});
+</script>
 
 <div class="card table-container">
     <table>
@@ -51,11 +50,11 @@ $therapies = $controller->getAll();
                         <td>
                             <div style="display: flex; gap: 0.5rem;">
                                 <a href="?page=therapies_new&id=<?= $therapy['id'] ?>" class="btn" style="color: var(--primary-color); padding: 0.5rem;" title="Editar"><i class="fa-solid fa-pen"></i></a>
-                                <a href="?page=therapies_delete&id=<?= $therapy['id'] ?>" 
+                                <a href="#" 
                                    class="btn text-danger" 
                                    style="color: var(--danger-color); padding: 0.5rem;" 
                                    title="Excluir"
-                                   onclick="return confirm('Tem certeza que deseja excluir esta terapia? Esta ação não pode ser desfeita.')">
+                                   onclick="event.preventDefault(); if (window.UI) UI.confirmDelete('Excluir Terapia', 'Tem certeza que deseja excluir esta terapia? Esta ação não pode ser desfeita.', () => window.location.href='?page=therapies_delete&id=<?= $therapy['id'] ?>'); else if (confirm('Tem certeza?')) window.location.href='?page=therapies_delete&id=<?= $therapy['id'] ?>';">
                                     <i class="fa-solid fa-trash"></i>
                                 </a>
                             </div>

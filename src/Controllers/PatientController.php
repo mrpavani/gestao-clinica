@@ -341,4 +341,67 @@ class PatientController {
         $stmt->execute([$patientId]);
         return $stmt->fetchAll();
     }
+
+    /**
+     * Deletes a patient and ALL related data (hard delete).
+     * Removes: session_notes → appointments → package_items → patient_packages
+     *          → patient_planning → patient_documents → patients
+     */
+    public function delete($id) {
+        try {
+            $this->pdo->beginTransaction();
+
+            // 1. Verify patient exists
+            $check = $this->pdo->prepare("SELECT id FROM patients WHERE id = ?");
+            $check->execute([$id]);
+            if (!$check->fetch()) {
+                $this->pdo->rollBack();
+                return ['success' => false, 'error' => 'Paciente não encontrado.'];
+            }
+
+            // 2. Delete session notes (via appointments)
+            $this->pdo->prepare("
+                DELETE sn FROM session_notes sn
+                JOIN appointments a ON sn.appointment_id = a.id
+                WHERE a.patient_id = ?
+            ")->execute([$id]);
+
+            // 3. Delete appointments
+            $this->pdo->prepare("DELETE FROM appointments WHERE patient_id = ?")->execute([$id]);
+
+            // 4. Delete package items (via packages)
+            $this->pdo->prepare("
+                DELETE pi FROM package_items pi
+                JOIN patient_packages pp ON pi.package_id = pp.id
+                WHERE pp.patient_id = ?
+            ")->execute([$id]);
+
+            // 5. Delete packages
+            $this->pdo->prepare("DELETE FROM patient_packages WHERE patient_id = ?")->execute([$id]);
+
+            // 6. Delete planning (PEI)
+            $this->pdo->prepare("DELETE FROM patient_planning WHERE patient_id = ?")->execute([$id]);
+
+            // 7. Delete documents (physical files + DB rows)
+            $docs = $this->pdo->prepare("SELECT file_path FROM patient_documents WHERE patient_id = ?");
+            $docs->execute([$id]);
+            foreach ($docs->fetchAll() as $doc) {
+                $fullPath = __DIR__ . '/../../public/' . $doc['file_path'];
+                if (file_exists($fullPath)) {
+                    @unlink($fullPath);
+                }
+            }
+            $this->pdo->prepare("DELETE FROM patient_documents WHERE patient_id = ?")->execute([$id]);
+
+            // 8. Delete the patient record
+            $this->pdo->prepare("DELETE FROM patients WHERE id = ?")->execute([$id]);
+
+            $this->pdo->commit();
+            return ['success' => true];
+
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            return ['success' => false, 'error' => 'Erro ao excluir paciente: ' . $e->getMessage()];
+        }
+    }
 }

@@ -3,7 +3,7 @@
 # Dependencies
 /vendor/
 
-# Configuration
+# Configuration (must be created manually on the server)
 /config/config.php
 
 # Logs and temporary files
@@ -21,5 +21,17 @@ Thumbs.db
 *.sqlite
 *.db
 
-# Production build artifacts (already scheduled for deletion, but good to keep in gitignore)
+# Production build artifacts
 /production_build/
+
+# Test files (should not go to production)
+*.spec.ts
+*.spec.js
+
+# Backup files
+*.bak
+
+# Local development SQL scripts
+local_db_schema.sql
+migration_pwd_reset.sql
+production_db_update.sql

@@ -14,17 +14,16 @@ $branches = $branchController->getAll();
     </a>
 </header>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
 <?php if (isset($_GET['success'])): ?>
-    <div style="background: #D1FAE5; color: #065F46; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
-        Operação realizada com sucesso!
-    </div>
+    if (window.UI) UI.showToast('Operação realizada com sucesso!', 'success');
 <?php endif; ?>
-
 <?php if (isset($_GET['error'])): ?>
-    <div style="background: #FEE2E2; color: #991B1B; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
-        <?= htmlspecialchars($_GET['error']) ?>
-    </div>
+    if (window.UI) UI.showToast('<?= addslashes(htmlspecialchars($_GET['error'])) ?>', 'error');
 <?php endif; ?>
+});
+</script>
 
 <div class="card table-container">
     <table>
@@ -83,6 +82,13 @@ $branches = $branchController->getAll();
                                     onclick="openTransferModal(<?= $p['id'] ?>, '<?= htmlspecialchars(addslashes($p['name'])) ?>')">
                                     <i class="fa-solid fa-right-left"></i>
                                 </button>
+                                <a href="#"
+                                   class="btn"
+                                   style="color: var(--danger-color); padding: 0.5rem;"
+                                   title="Excluir Paciente"
+                                   onclick="confirmDeletePatient(<?= $p['id'] ?>, '<?= htmlspecialchars(addslashes($p['name'])) ?>')">
+                                    <i class="fa-solid fa-trash"></i>
+                                </a>
                             </div>
                         </td>
                     </tr>
@@ -125,5 +131,15 @@ function openTransferModal(patientId, patientName) {
     document.getElementById('transferPatientId').value = patientId;
     document.getElementById('transferPatientName').textContent = 'Paciente: ' + patientName;
     document.getElementById('transferModal').style.display = 'flex';
+}
+
+function confirmDeletePatient(id, name) {
+    const url = '?page=patients_delete&id=' + id;
+    const msg = 'Tem certeza que deseja excluir <strong>' + name + '</strong>?<br>Todos os agendamentos, contratos e dados ser\u00e3o exclu\u00eddos permanentemente.';
+    if (window.UI) {
+        UI.confirmDelete('Excluir Paciente', msg, () => { window.location.href = url; });
+    } else if (confirm('Excluir ' + name + '? Esta a\u00e7\u00e3o n\u00e3o pode ser desfeita.')) {
+        window.location.href = url;
+    }
 }
 </script>

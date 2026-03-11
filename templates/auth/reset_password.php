@@ -13,7 +13,7 @@ if (empty($token)) {
 } else {
     $isValidToken = $authController->validateResetToken($token);
     if (!$isValidToken) {
-        $error = "Token inválido ou expirado. Solicite a recuperação de senha novamente.";
+        $error = "Token inválido ou expirado. Solicite a recuperação novamente.";
     }
 }
 
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isValidToken) {
         $result = $authController->resetPasswordWithToken($token, $newPassword);
         if ($result['success']) {
             $success = $result['message'];
-            $isValidToken = false; // Hide form on success
+            $isValidToken = false;
         } else {
             $error = $result['message'];
         }
@@ -50,6 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isValidToken) {
             justify-content: center;
             height: 100vh;
             background: linear-gradient(135deg, #2E86AB 0%, #A2D729 100%);
+            margin: 0;
+            font-family: 'Inter', sans-serif;
         }
         
         .login-container {
@@ -59,6 +61,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isValidToken) {
             box-shadow: var(--shadow-lg);
             width: 100%;
             max-width: 420px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .login-header {
@@ -66,68 +74,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isValidToken) {
             margin-bottom: 2.5rem;
         }
         
-        .login-logo {
-            max-height: 60px;
-            margin-bottom: 1rem;
-        }
-        
         .login-title {
             font-size: 1.5rem;
-            font-weight: 700;
+            font-weight: 800;
             color: var(--primary-color);
             margin-bottom: 0.5rem;
         }
-        
-        .alert {
-            padding: 0.75rem 1rem;
-            border-radius: var(--radius-md);
+
+        .input-group {
             margin-bottom: 1.5rem;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
             font-size: 0.9rem;
+            color: var(--text-secondary);
         }
-        .alert-error {
-            background: #fee;
-            border: 1px solid #fcc;
-            color: #c33;
+
+        .input-group input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--surface-secondary);
+            transition: all 0.3s;
         }
-        .alert-success {
-            background: #D1FAE5;
-            border: 1px solid #A7F3D0;
-            color: #065F46;
+
+        .input-group input:focus {
+            border-color: var(--primary-color);
+            background: var(--surface-color);
+        }
+
+        .btn-reset {
+            width: 100%;
+            padding: 0.9rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-decoration: none;
         }
     </style>
 </head>
 <body>
+    <div id="notification-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
     <div class="login-container">
         <div class="login-header">
-            <img src="public/assets/img/logo.png" alt="Nexo Logo" class="login-logo">
-            <h1 class="login-title">Criar Nova Senha</h1>
+            <img src="public/assets/img/logo.png" alt="Nexo Logo" style="max-height: 60px; margin-bottom: 1rem;">
+            <h1 class="login-title">Nova Senha</h1>
         </div>
 
-        <?php if ($error): ?>
-            <div class="alert alert-error">
-                <i class="fa-solid fa-triangle-exclamation"></i> <?= $error ?>
-            </div>
-            <?php if (!$isValidToken && !$success): ?>
-                <div style="text-align: center; margin-top: 1.5rem;">
-                    <a href="?page=forgot_password" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-rotate-left"></i> Tentar Novamente</a>
-                    <a href="?page=login" style="display: block; margin-top: 1rem; color: var(--text-secondary); text-decoration: none;">Ir para o Login</a>
-                </div>
-            <?php endif; ?>
-        <?php endif; ?>
-
         <?php if ($success): ?>
-            <div class="alert alert-success">
-                <i class="fa-solid fa-check-circle"></i> <?= $success ?>
-            </div>
-            
             <div style="text-align: center; margin-top: 2rem;">
-                <a href="?page=login" class="btn btn-primary" style="width: 100%;">Fazer Login</a>
+                <p style="color: var(--success-color); font-weight: 500;"><?= $success ?></p>
+                <a href="?page=login" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;">Fazer Login</a>
             </div>
-        <?php endif; ?>
-
-        <?php if ($isValidToken && !$success): ?>
+        <?php elseif (!$isValidToken): ?>
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <a href="?page=forgot_password" class="btn btn-primary" style="width: 100%;">Solicitar Novo Link</a>
+                <a href="?page=login" class="back-link">Voltar ao Login</a>
+            </div>
+        <?php else: ?>
             <form method="POST" autocomplete="off">
-                <div class="form-group" style="margin-bottom: 1rem;">
+                <div class="input-group">
                     <label for="new_password">Nova Senha</label>
                     <input 
                         type="password" 
@@ -136,12 +154,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isValidToken) {
                         required 
                         minlength="6"
                         autofocus
-                        style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: var(--radius-md);"
+                        placeholder="Mínimo 6 caracteres"
                     >
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">Mínimo 6 caracteres</div>
                 </div>
 
-                <div class="form-group" style="margin-bottom: 2rem;">
+                <div class="input-group" style="margin-bottom: 2rem;">
                     <label for="confirm_password">Confirmar Senha</label>
                     <input 
                         type="password" 
@@ -149,15 +166,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isValidToken) {
                         name="confirm_password" 
                         required 
                         minlength="6"
-                        style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: var(--radius-md);"
+                        placeholder="Repita a nova senha"
                     >
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                <button type="submit" class="btn btn-primary btn-reset">
                     <i class="fa-solid fa-save"></i> Salvar Senha
                 </button>
             </form>
         <?php endif; ?>
     </div>
+
+    <script src="public/assets/js/notifications.js"></script>
+    <script>
+        <?php if ($error): ?>
+            document.addEventListener('DOMContentLoaded', () => {
+                showNotification('<?= addslashes($error) ?>', 'error');
+            });
+        <?php endif; ?>
+        
+        <?php if ($success): ?>
+            document.addEventListener('DOMContentLoaded', () => {
+                showNotification('<?= addslashes($success) ?>', 'success');
+            });
+        <?php endif; ?>
+    </script>
 </body>
 </html>

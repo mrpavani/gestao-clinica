@@ -13,16 +13,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $authController = new AuthController();
         $result = $authController->generateResetToken($username);
         
-        // Em um sistema real, aqui enviariamos um e-mail. 
-        // Como não temos SMTP, vamos apenas simular para o admin poder copiar o link ou mostrar direto se deu certo.
         if ($result['success']) {
             $token = $result['token'];
             $recoverLink = "http://" . $_SERVER['HTTP_HOST'] . "/?page=reset_password&token=" . $token;
-            // Para fim de demonstração/teste local, vamos mostrar o link direto na mensagem de sucesso. 
-            // O ideal seria enviar por e-mail silenciosamente.
-            $success = "Instruções geradas! (Simulação de Envio de E-mail) <br><br> Acesse o link para redefinir: <br> <a href='{$recoverLink}' style='color: var(--primary-color); font-weight: bold; word-break: break-all;'>{$recoverLink}</a>";
+            // Link is shown for simulation purposes as per original file
+            $success = "Instruções geradas! (Simulação)<br><br><a href='{$recoverLink}' style='color: var(--primary-color); word-break: break-all;'>Clique aqui para redefinir sua senha</a>";
         } else {
-            // Mensagem genérica para não vazar se o usuário existe ou não, ou mostra erro
             $error = $result['message']; 
         }
     }
@@ -44,6 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             justify-content: center;
             height: 100vh;
             background: linear-gradient(135deg, #2E86AB 0%, #A2D729 100%);
+            margin: 0;
+            font-family: 'Inter', sans-serif;
         }
         
         .login-container {
@@ -53,6 +51,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: var(--shadow-lg);
             width: 100%;
             max-width: 420px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .login-header {
@@ -61,90 +65,128 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         .login-logo {
-            max-height: 60px;
+            max-height: 80px;
             margin-bottom: 1rem;
         }
         
         .login-title {
             font-size: 1.5rem;
-            font-weight: 700;
+            font-weight: 800;
             color: var(--primary-color);
             margin-bottom: 0.5rem;
         }
         
         .login-subtitle {
             color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 0.95rem;
         }
-        
-        .alert {
-            padding: 0.75rem 1rem;
+
+        .input-group {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.8rem 1rem 0.8rem 2.8rem;
+            border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
-            margin-bottom: 1.5rem;
+            background: var(--surface-secondary);
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--primary-color);
+            background: var(--surface-color);
+        }
+
+        .btn-recover {
+            width: 100%;
+            padding: 0.9rem;
+            font-weight: 600;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--text-secondary);
             font-size: 0.9rem;
+            text-decoration: none;
         }
-        .alert-error {
-            background: #fee;
-            border: 1px solid #fcc;
-            color: #c33;
-        }
-        .alert-success {
-            background: #D1FAE5;
-            border: 1px solid #A7F3D0;
-            color: #065F46;
+
+        .simulation-box {
+            background: var(--surface-secondary);
+            border-left: 4px solid var(--primary-color);
+            padding: 1.5rem;
+            border-radius: var(--radius-md);
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
+    <div id="notification-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
     <div class="login-container">
         <div class="login-header">
             <img src="public/assets/img/logo.png" alt="Nexo Logo" class="login-logo">
-            <h1 class="login-title">Recuperação de Senha</h1>
+            <h1 class="login-title">Recuperação</h1>
             <p class="login-subtitle">Informe seu usuário para obter instruções</p>
         </div>
 
-        <?php if ($error): ?>
-            <div class="alert alert-error">
-                <i class="fa-solid fa-triangle-exclamation"></i> <?= $error ?>
-            </div>
-        <?php endif; ?>
-
         <?php if ($success): ?>
-            <div class="alert alert-success">
-                <i class="fa-solid fa-check-circle"></i> <?= $success ?>
+            <div class="simulation-box">
+                <i class="fa-solid fa-circle-info" style="color: var(--primary-color); margin-bottom: 0.5rem;"></i><br>
+                <?= $success ?>
             </div>
             
-            <div style="text-align: center; margin-top: 2rem;">
-                <a href="?page=login" style="color: var(--primary-color); font-weight: 500; text-decoration: none;">Voltar ao Login</a>
-            </div>
+            <a href="?page=login" class="back-link" style="margin-top: 2rem; color: var(--primary-color); font-weight: 600;">
+                <i class="fa-solid fa-arrow-left"></i> Voltar ao Login
+            </a>
         <?php else: ?>
 
             <form method="POST" autocomplete="off">
-                <div class="form-group" style="margin-bottom: 1.5rem;">
-                    <label for="username">
-                        <i class="fa-solid fa-user"></i> Nome de Usuário
-                    </label>
+                <div class="input-group">
+                    <i class="fa-solid fa-user"></i>
                     <input 
                         type="text" 
                         id="username" 
                         name="username" 
                         required 
                         autofocus
-                        placeholder="Digite seu nome de usuário"
-                        style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: var(--radius-md);"
+                        placeholder="Nome de Usuário"
                     >
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                <button type="submit" class="btn btn-primary btn-recover">
                     <i class="fa-solid fa-paper-plane"></i> Enviar Instruções
                 </button>
                 
-                <div style="text-align: center; margin-top: 1.5rem;">
-                    <a href="?page=login" style="color: var(--text-secondary); font-size: 0.9rem; text-decoration: none;"><i class="fa-solid fa-arrow-left"></i> Voltar ao Login</a>
-                </div>
+                <a href="?page=login" class="back-link">
+                    <i class="fa-solid fa-arrow-left"></i> Voltar para o Login
+                </a>
             </form>
             
         <?php endif; ?>
     </div>
+
+    <script src="public/assets/js/notifications.js"></script>
+    <script>
+        <?php if ($error): ?>
+            document.addEventListener('DOMContentLoaded', () => {
+                showNotification('<?= addslashes($error) ?>', 'error');
+            });
+        <?php endif; ?>
+    </script>
 </body>
 </html>

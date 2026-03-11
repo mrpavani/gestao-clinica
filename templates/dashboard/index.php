@@ -14,7 +14,7 @@ $currentBranchId = $_SESSION['branch_id'] ?? null;
 // Handle quick branch switch
 if (isset($_GET['switch_branch']) && AuthController::isAdmin()) {
     $branchController->selectBranch($_GET['switch_branch']);
-    header('Location: ?page=dashboard');
+    echo '<script>window.location.href="?page=dashboard";</script>';
     exit;
 }
 

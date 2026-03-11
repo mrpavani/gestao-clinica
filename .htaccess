@@ -1,9 +1,50 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
-    # Optional: Prevent directory listing
+    # Prevent directory listing
     Options -Indexes
+</IfModule>
 
-    # Basic routing (if we ever switch to pretty URLs later)
-    # For now, index.php handles ?page=...
+# ============================================
+# SECURITY HEADERS
+# ============================================
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ============================================
+# BLOCK SENSITIVE FILES AND DIRECTORIES
+# ============================================
+
+# Block access to config directory
+<IfModule mod_rewrite.c>
+    RewriteRule ^config/ - [F,L]
+</IfModule>
+
+# Block access to database and SQL files
+<FilesMatch "\.(sql|sqlite|db)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block access to backup, log, text, and test files
+<FilesMatch "\.(bak|log|txt|spec\.ts)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block access to hidden files (starting with dot), except .htaccess
+<FilesMatch "^\.(?!htaccess)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block direct access to PHP files inside src/ (only index.php should be the entry point)
+<IfModule mod_rewrite.c>
+    RewriteRule ^src/ - [F,L]
+    RewriteRule ^templates/ - [F,L]
+    RewriteRule ^ajax/(.*)$ ajax/$1 [L]
 </IfModule>

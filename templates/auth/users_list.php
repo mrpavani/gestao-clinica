@@ -35,14 +35,19 @@ if (isset($_GET['delete_id'])) {
     </button>
 </header>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
 <?php if (!empty($message)): ?>
-<div class="card" style="margin-bottom: 1.5rem; padding: 1rem; background: <?= $message['success'] ? '#d1fae5' : '#fee' ?>; border: 1px solid <?= $message['success'] ? '#6ee7b7' : '#fcc' ?>;">
-    <p style="color: <?= $message['success'] ? '#065f46' : '#c33' ?>; margin: 0;">
-        <i class="fa-solid fa-<?= $message['success'] ? 'check-circle' : 'exclamation-triangle' ?>"></i>
-        <?= htmlspecialchars($message['message']) ?>
-    </p>
-</div>
+    if (window.UI) UI.showToast('<?= addslashes(htmlspecialchars($message['message'])) ?>', '<?= $message['success'] ? 'success' : 'error' ?>');
 <?php endif; ?>
+<?php if (isset($_GET['success'])): ?>
+    if (window.UI) UI.showToast('Operação realizada com sucesso!', 'success');
+<?php endif; ?>
+<?php if (isset($_GET['error'])): ?>
+    if (window.UI) UI.showToast('<?= addslashes(htmlspecialchars($_GET['error'])) ?>', 'error');
+<?php endif; ?>
+});
+</script>
 
 <div class="card table-container">
     <table>
@@ -75,11 +80,11 @@ if (isset($_GET['delete_id'])) {
                                    title="Editar">
                                     <i class="fa-solid fa-pen"></i>
                                 </a>
-                                <a href="?page=users&delete_id=<?= $user['id'] ?>" 
+                                <a href="#" 
                                    class="btn" 
                                    style="color: var(--danger-color); padding: 0.5rem;" 
                                    title="Excluir"
-                                   onclick="return confirm('Tem certeza que deseja excluir este usuário?')">
+                                   onclick="event.preventDefault(); if (window.UI) UI.confirmDelete('Excluir Usuário', 'Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.', () => window.location.href='?page=users&delete_id=<?= $user['id'] ?>'); else if (confirm('Tem certeza?')) window.location.href='?page=users&delete_id=<?= $user['id'] ?>';">
                                     <i class="fa-solid fa-trash"></i>
                                 </a>
                             <?php endif; ?>

@@ -11,11 +11,16 @@ $specialties = $controller->getAll();
     </a>
 </header>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
 <?php if (isset($_GET['success'])): ?>
-    <div style="background: #D1FAE5; color: #065F46; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
-        Operação realizada com sucesso!
-    </div>
+    if (window.UI) UI.showToast('Operação realizada com sucesso!', 'success');
 <?php endif; ?>
+<?php if (isset($_GET['error'])): ?>
+    if (window.UI) UI.showToast('<?= addslashes(htmlspecialchars($_GET['error'])) ?>', 'error');
+<?php endif; ?>
+});
+</script>
 
 <div class="card table-container">
     <table>
@@ -39,11 +44,11 @@ $specialties = $controller->getAll();
                         <td>
                             <div style="display: flex; gap: 0.5rem;">
                                 <a href="?page=specialties_new&id=<?= $spec['id'] ?>" class="btn" style="color: var(--primary-color); padding: 0.5rem;" title="Editar"><i class="fa-solid fa-pen"></i></a>
-                                <a href="?page=specialties_delete&id=<?= $spec['id'] ?>" 
+                                <a href="#" 
                                    class="btn text-danger" 
                                    style="color: var(--danger-color); padding: 0.5rem;" 
                                    title="Excluir"
-                                   onclick="return confirm('Tem certeza que deseja excluir esta especialidade? Ela será removida de todos os profissionais.')">
+                                   onclick="event.preventDefault(); if (window.UI) UI.confirmDelete('Excluir Especialidade', 'Tem certeza que deseja excluir esta especialidade? Ela será removida de todos os profissionais.', () => window.location.href='?page=specialties_delete&id=<?= $spec['id'] ?>'); else if (confirm('Tem certeza?')) window.location.href='?page=specialties_delete&id=<?= $spec['id'] ?>';">
                                     <i class="fa-solid fa-trash"></i>
                                 </a>
                             </div>

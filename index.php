@@ -4,10 +4,22 @@
 
 // Error handling wrapper
 try {
-    // DEBUGGING ENABLED
-    ini_set('display_errors', 1);
-    ini_set('display_startup_errors', 1);
-    error_reporting(E_ALL);
+    // Environment detection
+    $isProduction = !(isset($_SERVER['SERVER_NAME']) && in_array($_SERVER['SERVER_NAME'], ['localhost', '127.0.0.1']));
+
+    if ($isProduction) {
+        // Production: hide errors from visitors, log them instead
+        ini_set('display_errors', 0);
+        ini_set('display_startup_errors', 0);
+        error_reporting(E_ALL);
+        ini_set('log_errors', 1);
+    } else {
+        // Local development: show all errors
+        ini_set('display_errors', 1);
+        ini_set('display_startup_errors', 1);
+        error_reporting(E_ALL);
+    }
+
 
     // Start session
     session_start();
@@ -35,10 +47,12 @@ try {
             $password = $_POST['password'] ?? '';
             
             if ($auth->login($username, $password)) {
+                $_SESSION['success_msg'] = 'Bem-vindo ao Nexo System!';
                 header('Location: ?page=dashboard');
                 exit;
             } else {
-                header('Location: ?page=login&error=invalid');
+                $_SESSION['error_msg'] = 'Usuário ou senha inválidos.';
+                header('Location: ?page=login');
                 exit;
             }
         }
@@ -50,14 +64,16 @@ try {
     if ($page === 'logout') {
         $auth = new AuthController();
         $auth->logout();
-        header('Location: ?page=login&error=logout');
+        $_SESSION['success_msg'] = 'Você saiu do sistema.';
+        header('Location: ?page=login');
         exit;
     }
     
     // Check authentication for all pages except public
     $publicPages = ['login', 'login_action', 'select_branch', 'forgot_password', 'reset_password'];
     if (!in_array($page, $publicPages) && !AuthController::isAuthenticated()) {
-        header('Location: ?page=login&error=unauthorized');
+        $_SESSION['error_msg'] = 'Sua sessão expirou. Por favor, faça login novamente.';
+        header('Location: ?page=login');
         exit;
     }
     
@@ -89,8 +105,12 @@ try {
     <link rel="stylesheet" href="public/assets/css/style.css?v=<?=time()?>">
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="public/assets/css/notifications.css?v=<?=time()?>">
 </head>
 <body>
+    <!-- Notification Container -->
+    <div id="notification-container"></div>
+
     <?php $hideNavPages = ['login', 'select_branch', 'forgot_password', 'reset_password']; ?>
     <?php if (!in_array($page, $hideNavPages)): ?>
     <nav class="sidebar">
@@ -260,6 +280,22 @@ try {
                 if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
                 require_once __DIR__ . '/templates/patients/view.php';
                 break;
+
+            case 'patients_delete':
+                if (!$isAdmin) { header('Location: ?page=patients&error=' . urlencode('Acesso negado.')); exit; }
+                $id = intval($_GET['id'] ?? 0);
+                if ($id > 0) {
+                    $controller = new PatientController();
+                    $result = $controller->delete($id);
+                    if ($result['success']) {
+                        header('Location: ?page=patients&success=deleted');
+                    } else {
+                        header('Location: ?page=patients&error=' . urlencode($result['error']));
+                    }
+                } else {
+                    header('Location: ?page=patients&error=' . urlencode('ID de paciente inválido.'));
+                }
+                exit;
             
             case 'patient_edit_plan':
                 if (!$isAdmin) { header('Location: ?page=schedule'); exit; }
@@ -412,17 +448,41 @@ try {
     <?php if (!in_array($page, $hideNavPages)): ?>
     </main>
     <?php endif; ?>
+    
+    <script src="public/assets/js/ui-helper.js?v=<?=time()?>"></script>
+    <?php
+    // Check for session messages
+    if (isset($_SESSION['success_msg'])) {
+        echo "<script>window.onload = () => UIHelper.showNotification('" . addslashes($_SESSION['success_msg']) . "', 'success');</script>";
+        unset($_SESSION['success_msg']);
+    }
+    if (isset($_SESSION['error_msg'])) {
+        echo "<script>window.onload = () => UIHelper.showNotification('" . addslashes($_SESSION['error_msg']) . "', 'error');</script>";
+        unset($_SESSION['error_msg']);
+    }
+    ?>
 </body>
 </html>
 <?php
 } catch (Exception $e) {
-    // Display error in a user-friendly format
-    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Error</title></head><body>';
+    // Log the error regardless of environment
+    error_log('[gestao-clinica] Uncaught Exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+
+    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Erro</title></head><body>';
     echo '<div style="font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; background: #fee; border: 2px solid #c33; border-radius: 8px;">';
     echo '<h2 style="color: #c33;">⚠️ Erro na Aplicação</h2>';
-    echo '<p><strong>Mensagem:</strong> ' . htmlspecialchars($e->getMessage()) . '</p>';
-    echo '<p><strong>Arquivo:</strong> ' . htmlspecialchars($e->getFile()) . ':' . $e->getLine() . '</p>';
-    echo '<pre style="background: #fff; padding: 10px; border-radius: 4px; overflow-x: auto;">' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+
+    if (isset($isProduction) && !$isProduction) {
+        // Development: show full details
+        echo '<p><strong>Mensagem:</strong> ' . htmlspecialchars($e->getMessage()) . '</p>';
+        echo '<p><strong>Arquivo:</strong> ' . htmlspecialchars($e->getFile()) . ':' . $e->getLine() . '</p>';
+        echo '<pre style="background: #fff; padding: 10px; border-radius: 4px; overflow-x: auto;">' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+    } else {
+        // Production: hide technical details
+        echo '<p>Ocorreu um erro interno. Por favor, tente novamente ou entre em contato com o suporte.</p>';
+        echo '<p><a href="?page=login" style="color: #c33;">← Voltar para o Login</a></p>';
+    }
+
     echo '</div></body></html>';
 }
 ?>

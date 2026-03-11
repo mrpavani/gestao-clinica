@@ -30,17 +30,16 @@ $branches = $controller->getAll();
     </a>
 </header>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
 <?php if (isset($_GET['success'])): ?>
-    <div style="background: #D1FAE5; color: #065F46; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1rem;">
-        Operação realizada com sucesso!
-    </div>
+    if (window.UI) UI.showToast('Operação realizada com sucesso!', 'success');
 <?php endif; ?>
-
 <?php if (isset($_GET['error'])): ?>
-    <div style="background: #FEE2E2; color: #991B1B; padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1rem;">
-        <?= htmlspecialchars($_GET['error']) ?>
-    </div>
+    if (window.UI) UI.showToast('<?= addslashes(htmlspecialchars($_GET['error'])) ?>', 'error');
 <?php endif; ?>
+});
+</script>
 
 <div class="table-container">
     <table>
@@ -65,7 +64,7 @@ $branches = $controller->getAll();
                             <a href="?page=branches_new&id=<?= $branch['id'] ?>" class="btn" style="padding: 0.5rem; background: #E0F2FE; color: var(--primary-color);">
                                 <i class="fa-solid fa-pen"></i>
                             </a>
-                            <a href="?page=branches&action=delete&id=<?= $branch['id'] ?>" class="btn" style="padding: 0.5rem; background: #FEE2E2; color: #DC2626;" onclick="return confirm('Deseja realmente excluir esta filial?');">
+                            <a href="#" class="btn" style="padding: 0.5rem; background: #FEE2E2; color: #DC2626;" onclick="event.preventDefault(); if (window.UI) UI.confirmDelete('Excluir Filial', 'Deseja realmente excluir esta filial?', () => window.location.href='?page=branches&action=delete&id=<?= $branch['id'] ?>'); else if (confirm('Deseja realmente excluir esta filial?')) window.location.href='?page=branches&action=delete&id=<?= $branch['id'] ?>';">
                                 <i class="fa-solid fa-trash"></i>
                             </a>
                         </td>
