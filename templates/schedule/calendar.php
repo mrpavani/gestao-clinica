@@ -443,10 +443,10 @@ async function fetchPatientTherapies() {
         return;
     }
     
-    const date = startTimeRaw ? startTimeRaw.split('T')[0] : '';
+    const date = startTimeRaw ? startTimeRaw.split('T')[0] : new Date().toISOString().split('T')[0];
     
     try {
-        const response = await fetch(`ajax/get_patient_therapies.php?patient_id=${patientId}&date=${date}`);
+        const response = await fetch(`/ajax/get_patient_therapies.php?patient_id=${patientId}&date=${date}`);
         const data = await response.json();
         
         therapySelect.innerHTML = '<option value="">Selecione...</option>';
@@ -484,10 +484,12 @@ function filterProfessionals() {
     
     if (!therapyId) return;
     
-    const allowedIds = therapyMap[therapyId] || []; // List of IDs allowed
+    // Normalize allowedIds to strings to avoid int vs string comparison issues
+    const rawIds = therapyMap[therapyId] || therapyMap[Number(therapyId)] || [];
+    const allowedIds = rawIds.map(id => String(id));
     
-    // Filter allProfs
-    const filtered = allProfs.filter(p => allowedIds.includes(p.id));
+    // Filter allProfs (normalize p.id to string as well)
+    const filtered = allProfs.filter(p => allowedIds.includes(String(p.id)));
     
     if (filtered.length === 0) {
          const option = document.createElement('option');
