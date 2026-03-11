@@ -100,6 +100,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Preencha todos os campos obrigatórios.';
     }
 }
+// Helper: render a <select> with 15-min time options between 06:00 and 22:00
+function renderTimeSelect(string $name, string $selected = '08:00'): string {
+    $html = "<select name=\"$name\" style=\"width: auto; padding: 0.25rem 0.4rem; font-size: 0.85rem;\">";
+    for ($h = 6; $h <= 22; $h++) {
+        foreach ([0, 15, 30, 45] as $m) {
+            if ($h === 22 && $m > 0) break; // stop at 22:00
+            $t = sprintf('%02d:%02d', $h, $m);
+            $sel = ($t === substr($selected, 0, 5)) ? ' selected' : '';
+            $html .= "<option value=\"$t\"$sel>$t</option>";
+        }
+    }
+    $html .= '</select>';
+    return $html;
+}
 ?>
 
 <header>
@@ -207,9 +221,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </label>
                                 
                                 <div style="display: flex; gap: 0.25rem; align-items: center; opacity: <?= $isActive ? '1' : '0.4' ?>; pointer-events: <?= $isActive ? 'auto' : 'none' ?>;" id="sched_time_<?= $dayNum ?>">
-                                    <input type="time" name="schedules[<?= $dayNum ?>][start]" value="<?= $start ?>" style="width: auto; padding: 0.25rem; font-size: 0.85rem;">
+                                    <?= renderTimeSelect("schedules[$dayNum][start]", $start) ?>
                                     <span style="font-size: 0.8rem; color: #9CA3AF;">às</span>
-                                    <input type="time" name="schedules[<?= $dayNum ?>][end]" value="<?= $end ?>" style="width: auto; padding: 0.25rem; font-size: 0.85rem;">
+                                    <?= renderTimeSelect("schedules[$dayNum][end]", $end) ?>
                                 </div>
                             </div>
                             <?php endforeach; ?>

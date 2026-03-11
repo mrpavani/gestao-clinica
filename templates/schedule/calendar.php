@@ -64,32 +64,10 @@ foreach ($appointments as $appt) {
     $calendarEvents[$day][] = $appt;
 }
 
-// Handle Form Submission
+// Form submission is handled via AJAX (ajax/save_appointment.php)
+// No server-side POST processing needed here to avoid white screen issues
 $message = '';
 $error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $res = $apptController->create(
-        $_POST['patient_id'],
-        $_POST['professional_id'],
-        $_POST['therapy_id'],
-        $_POST['start_time'],
-        $_POST['duration'],
-        $_POST['notes'] ?? ''
-    );
-    
-    if ($res['success']) {
-        $message = 'Agendamento realizado!';
-        // Refresh appointments
-        $appointments = $apptController->getAppointmentsByRange($startDate, $endDate);
-        $calendarEvents = [];
-        foreach ($appointments as $appt) {
-            $day = date('j', strtotime($appt['start_time']));
-            $calendarEvents[$day][] = $appt;
-        }
-    } else {
-        $error = $res['error'];
-    }
-}
 
 // Navigation
 $prevMonth = date('m', strtotime("$startDate -1 month"));
@@ -378,8 +356,12 @@ $monthName = $monthsPt[$month] ?? date('F', strtotime($startDate));
     <!-- Quick Add Form (Only Admins) -->
     <?php if (AuthController::isAdmin()): ?>
     <div class="card sticky-sidebar">
-        <h3>Novo Agendamento</h3>
-        <form method="POST">
+        <h3 style="margin-bottom: 1rem;">Novo Agendamento</h3>
+
+        <!-- Feedback Area -->
+        <div id="apptFeedback" style="display:none; padding: 0.75rem; border-radius: var(--radius-md); margin-bottom: 1rem; font-size: 0.9rem;"></div>
+
+        <form id="appointmentForm" autocomplete="off">
             <div class="form-group">
                 <label>Paciente</label>
                 <select name="patient_id" id="patientSelect" required onchange="fetchPatientTherapies()">
@@ -406,18 +388,51 @@ $monthName = $monthsPt[$month] ?? date('F', strtotime($startDate));
                     <?php endforeach; ?>
                 </select>
             </div>
-            
-             <div class="form-group">
+
+            <div class="form-group">
                 <label>Data e Hora</label>
-                <input type="datetime-local" id="startTimeInput" name="start_time" required value="<?= date('Y-m-d\T08:00') ?>" onchange="fetchPatientTherapies()">
+                <input type="datetime-local" id="startTimeInput" name="start_time" required
+                       value="<?= date('Y-m-d\T08:00') ?>"
+                       onchange="fetchPatientTherapies(); updateRecurrencePreview()">
             </div>
             
             <div class="form-group">
                 <label>Duração (min)</label>
-                <input type="number" name="duration" value="60" min="15" step="15">
+                <input type="number" name="duration" id="durationInput" value="60" min="15" step="15" onchange="updateRecurrencePreview()">
             </div>
-            
-            <button type="submit" class="btn btn-primary" style="width: 100%;">Agendar</button>
+
+            <!-- Recurrence Toggle -->
+            <div style="background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: var(--radius-md); padding: 0.75rem; margin-bottom: 1rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: #0369A1;">
+                    <input type="checkbox" id="recurrenceToggle" name="is_recurrent" value="1"
+                           style="width: auto; margin: 0;" onchange="toggleRecurrence()">
+                    <i class="fa-solid fa-rotate"></i> Agendar por Recorrência
+                </label>
+                <p style="margin: 0.4rem 0 0 1.4rem; font-size: 0.8rem; color: #0369A1;">
+                    Repete semanalmente na mesma data/hora
+                </p>
+            </div>
+
+            <!-- Recurrence Fields (hidden by default) -->
+            <div id="recurrenceFields" style="display: none;">
+                <div class="form-group">
+                    <label>Repetir até (data final) *</label>
+                    <input type="date" id="repeatEndDate" name="repeat_end_date"
+                           min="<?= date('Y-m-d', strtotime('+7 days')) ?>"
+                           onchange="updateRecurrencePreview()"
+                           style="width: 100%;">
+                </div>
+
+                <!-- Preview -->
+                <div id="recurrencePreview" style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-md); padding: 0.5rem 0.75rem; margin-bottom: 1rem; font-size: 0.85rem; color: #1D4ED8; display: none;">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span id="previewText"></span>
+                </div>
+            </div>
+
+            <button type="submit" id="apptSubmitBtn" class="btn btn-primary" style="width: 100%;">
+                <i class="fa-solid fa-calendar-plus"></i> <span id="submitBtnText">Agendar</span>
+            </button>
         </form>
     </div>
     <?php endif; ?>
@@ -506,5 +521,125 @@ function filterProfessionals() {
             profSelect.add(option);
         });
     }
+}
+</script>
+
+<script>
+// ─── AJAX Form Submit ────────────────────────────────────────────
+const apptForm = document.getElementById('appointmentForm');
+if (apptForm) {
+    apptForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const btn     = document.getElementById('apptSubmitBtn');
+        const btnText = document.getElementById('submitBtnText');
+        const feedback = document.getElementById('apptFeedback');
+
+        // Loading state
+        btn.disabled = true;
+        btnText.textContent = 'Agendando...';
+        feedback.style.display = 'none';
+
+        const formData = new FormData(apptForm);
+        const isRecurrent = document.getElementById('recurrenceToggle').checked;
+        formData.set('recurrence_mode', isRecurrent ? 'recurrent' : 'single');
+
+        try {
+            const response = await fetch('/ajax/save_appointment.php', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                showFeedback(data.message || 'Agendamento realizado com sucesso!', 'success');
+                apptForm.reset();
+                document.getElementById('therapySelect').innerHTML = '<option value="">Selecione o paciente primeiro...</option>';
+                document.getElementById('profSelect').innerHTML   = '<option value="">Selecione a terapia primeiro...</option>';
+                document.getElementById('recurrenceFields').style.display = 'none';
+                document.getElementById('recurrencePreview').style.display = 'none';
+                document.getElementById('startTimeInput').value = new Date().toISOString().slice(0, 16).replace('T', 'T').substring(0, 11) + '08:00';
+                // Soft reload calendar after short delay so user reads the success message
+                setTimeout(() => { window.location.reload(); }, 2200);
+            } else {
+                showFeedback(data.error || 'Erro ao agendar.', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showFeedback('Erro de conexão. Tente novamente.', 'error');
+        } finally {
+            btn.disabled = false;
+            btnText.textContent = 'Agendar';
+        }
+    });
+}
+
+function showFeedback(msg, type) {
+    const el = document.getElementById('apptFeedback');
+    if (!el) return;
+    el.style.display = 'block';
+    if (type === 'success') {
+        el.style.background = '#D1FAE5';
+        el.style.color      = '#065F46';
+        el.style.border     = '1px solid #6EE7B7';
+        el.innerHTML = '<i class="fa-solid fa-check-circle"></i> ' + msg;
+    } else {
+        el.style.background = '#FEE2E2';
+        el.style.color      = '#991B1B';
+        el.style.border     = '1px solid #FECACA';
+        el.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + msg;
+    }
+    // Auto-hide success after 4s
+    if (type === 'success') {
+        setTimeout(() => { el.style.display = 'none'; }, 4000);
+    }
+}
+
+// ─── Recurrence Toggle ───────────────────────────────────────────
+function toggleRecurrence() {
+    const isOn  = document.getElementById('recurrenceToggle').checked;
+    const fields = document.getElementById('recurrenceFields');
+    fields.style.display = isOn ? 'block' : 'none';
+    const btn = document.getElementById('submitBtnText');
+    btn.textContent = isOn ? 'Agendar Recorrências' : 'Agendar';
+    if (isOn) updateRecurrencePreview();
+}
+
+function updateRecurrencePreview() {
+    const isOn = document.getElementById('recurrenceToggle').checked;
+    if (!isOn) return;
+
+    const startRaw = document.getElementById('startTimeInput').value;
+    const endRaw   = document.getElementById('repeatEndDate').value;
+    const preview  = document.getElementById('recurrencePreview');
+    const text     = document.getElementById('previewText');
+
+    if (!startRaw || !endRaw) {
+        preview.style.display = 'none';
+        return;
+    }
+
+    const start = new Date(startRaw);
+    const end   = new Date(endRaw + 'T23:59:59');
+
+    if (end <= start) {
+        preview.style.display = 'none';
+        return;
+    }
+
+    // Count weekly occurrences
+    let count = 0;
+    let cursor = new Date(start);
+    while (cursor <= end) {
+        count++;
+        cursor.setDate(cursor.getDate() + 7);
+    }
+
+    const days = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+    const dayName = days[start.getDay()];
+    const timeStr = start.toTimeString().slice(0, 5);
+
+    text.textContent = `${count} sessões às ${timeStr} de ${dayName}, até ${endRaw.split('-').reverse().join('/')}`;
+    preview.style.display = 'block';
 }
 </script>

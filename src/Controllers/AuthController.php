@@ -93,7 +93,9 @@ class AuthController {
             return ['success' => false, 'message' => 'Usuário e senha são obrigatórios.'];
         }
 
-        if ($role === 'professional' && empty($professional_id)) {
+        if ($role !== 'professional') {
+            $professional_id = null;
+        } else if (empty($professional_id)) {
             return ['success' => false, 'message' => 'Profissional deve ser selecionado para usuários do tipo profissional.'];
         }
 
@@ -165,6 +167,10 @@ class AuthController {
 
         if (empty($username)) {
             return ['success' => false, 'message' => 'Nome de usuário é obrigatório.'];
+        }
+
+        if ($role !== 'professional') {
+            $professional_id = null;
         }
 
         // Check if username already taken by another user

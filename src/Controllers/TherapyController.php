@@ -90,9 +90,10 @@ class TherapyController {
         try {
             $this->pdo->beginTransaction();
 
-            $sql = "INSERT INTO therapies (name, default_duration_minutes, color) VALUES (?, ?, ?)";
+            $branchId = $_SESSION['branch_id'] ?? null;
+            $sql = "INSERT INTO therapies (name, default_duration_minutes, color, branch_id) VALUES (?, ?, ?, ?)";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$name, $duration, $color]);
+            $stmt->execute([$name, $duration, $color, $branchId]);
             
             $therapyId = $this->pdo->lastInsertId();
             $this->syncProfessionals($therapyId, $professionalIds);
@@ -100,8 +101,13 @@ class TherapyController {
 
             $this->pdo->commit();
             return true;
+        } catch (PDOException $e) {
+            $this->pdo->rollBack();
+            file_put_contents(__DIR__ . '/../../../err.log', "Therapy creation PDO error: " . $e->getMessage() . "\n", FILE_APPEND);
+            return false;
         } catch (Exception $e) {
             $this->pdo->rollBack();
+            file_put_contents(__DIR__ . '/../../../err.log', "Therapy creation exception: " . $e->getMessage() . "\n", FILE_APPEND);
             return false;
         }
     }

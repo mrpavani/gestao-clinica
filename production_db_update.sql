@@ -322,3 +322,20 @@ UPDATE therapies SET name = REPLACE(name, 'Ecoterapia', 'Equoterapia') WHERE nam
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- FIM DO SCRIPT
+
+-- ==============================================================
+-- MIGRATION: Suporte a Agendamentos Recorrentes
+-- Data: 2026-03-11
+-- Descrição: Adiciona coluna para agrupar sessões recorrentes
+-- ==============================================================
+
+-- Adiciona coluna apenas se não existir (safe to re-run)
+ALTER TABLE appointments 
+    ADD COLUMN IF NOT EXISTS recurrence_group_id VARCHAR(36) NULL DEFAULT NULL
+    COMMENT 'UUID compartilhado entre sessões de uma mesma recorrência semanal';
+
+-- Índice para facilitar busca por grupo
+ALTER TABLE appointments
+    ADD INDEX IF NOT EXISTS idx_recurrence_group (recurrence_group_id);
+
+-- FIM DA MIGRATION DE RECORRÊNCIA

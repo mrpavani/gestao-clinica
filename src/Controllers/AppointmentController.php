@@ -336,4 +336,131 @@ class AppointmentController {
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
+
+    /**
+     * Creates recurring appointments on the same weekday from startTime until repeatEndDate.
+     * Each appointment is validated individually (conflicts, session limits).
+     * Returns summary with count of created and skipped sessions.
+     */
+    public function createRecurrent($patientId, $professionalId, $therapyId, $startTime, $durationMinutes, $repeatEndDate, $notes = '') {
+        // Generate a shared UUID to group all recurring sessions
+        $groupId = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+        );
+
+        $start     = new DateTime($startTime);
+        $endLimit  = new DateTime($repeatEndDate . ' 23:59:59');
+        $timeOfDay = $start->format('H:i:s');
+        $dayOfWeek = (int)$start->format('N'); // 1=Monday ... 7=Sunday
+
+        // Collect all future dates on the same weekday
+        $dates = [];
+        $cursor = clone $start;
+        // Align cursor to next occurrence of the same weekday (start date itself if it matches)
+        // $start already is the right weekday (user picked the date+time)
+        while ($cursor <= $endLimit) {
+            $dates[] = clone $cursor;
+            $cursor->modify('+7 days');
+        }
+
+        if (empty($dates)) {
+            return ['success' => false, 'error' => 'Nenhuma data gerada. Verifique a data final.'];
+        }
+
+        $created  = 0;
+        $skipped  = [];
+
+        foreach ($dates as $date) {
+            $sessionStart = $date->format('Y-m-d') . ' ' . $timeOfDay;
+            $sessionStartDt = new DateTime($sessionStart);
+            $sessionEnd   = clone $sessionStartDt;
+            $sessionEnd->modify("+$durationMinutes minutes");
+            $startStr = $sessionStartDt->format('Y-m-d H:i:s');
+            $endStr   = $sessionEnd->format('Y-m-d H:i:s');
+            $dateOnly = $sessionStartDt->format('Y-m-d');
+            $month    = $sessionStartDt->format('m');
+            $year     = $sessionStartDt->format('Y');
+
+            // Check branch isolation
+            $branchId = $_SESSION['branch_id'] ?? null;
+            if ($branchId) {
+                $prof    = (new ProfessionalController())->getById($professionalId);
+                $patient = (new PatientController())->getById($patientId);
+                if ($prof && $prof['branch_id'] != $branchId) {
+                    $skipped[] = $dateOnly . ' (profissional de outra unidade)';
+                    continue;
+                }
+                if ($patient && $patient['branch_id'] != $branchId) {
+                    $skipped[] = $dateOnly . ' (paciente de outra unidade)';
+                    continue;
+                }
+            }
+
+            // Check active package
+            $allowedTherapies = (new PatientController())->getActivePackageTherapies($patientId, $dateOnly);
+            $matched = null;
+            foreach ($allowedTherapies as $at) {
+                if ($at['therapy_id'] == $therapyId) { $matched = $at; break; }
+            }
+            if (!$matched) {
+                $skipped[] = $dateOnly . ' (terapia sem pacote ativo)';
+                continue;
+            }
+
+            // Check monthly session limit
+            $limit = $matched['sessions_per_month'];
+            $stmtCount = $this->pdo->prepare("
+                SELECT COUNT(*) FROM appointments 
+                WHERE patient_id = ? AND therapy_id = ?
+                AND MONTH(start_time) = ? AND YEAR(start_time) = ?
+                AND status IN ('scheduled', 'completed')
+            ");
+            $stmtCount->execute([$patientId, $therapyId, $month, $year]);
+            if ($stmtCount->fetchColumn() >= $limit) {
+                $skipped[] = $dateOnly . " (limite $limit sessões/mês atingido)";
+                continue;
+            }
+
+            // Check professional conflict
+            if ($this->hasConflict($professionalId, $startStr, $endStr)) {
+                $skipped[] = $dateOnly . ' (conflito de horário do profissional)';
+                continue;
+            }
+
+            // Check patient conflict
+            if ($this->hasPatientConflict($patientId, $startStr, $endStr)) {
+                $skipped[] = $dateOnly . ' (conflito de horário do paciente)';
+                continue;
+            }
+
+            // Insert with recurrence_group_id
+            $sql = "INSERT INTO appointments (patient_id, professional_id, therapy_id, start_time, end_time, status, notes, recurrence_group_id) 
+                    VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?)";
+            $stmt = $this->pdo->prepare($sql);
+            if ($stmt->execute([$patientId, $professionalId, $therapyId, $startStr, $endStr, $notes, $groupId])) {
+                $created++;
+            } else {
+                $skipped[] = $dateOnly . ' (erro no banco)';
+            }
+        }
+
+        $total = count($dates);
+        if ($created === 0) {
+            return [
+                'success' => false,
+                'error'   => 'Nenhuma sessão pôde ser criada. Motivos: ' . implode('; ', $skipped)
+            ];
+        }
+
+        $msg = "$created de $total sessões agendadas com sucesso.";
+        if (!empty($skipped)) {
+            $msg .= ' Sessões não criadas: ' . implode('; ', $skipped);
+        }
+        return ['success' => true, 'message' => $msg, 'created' => $created, 'skipped' => $skipped];
+    }
 }
+

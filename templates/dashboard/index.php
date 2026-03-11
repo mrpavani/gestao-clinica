@@ -33,7 +33,7 @@ $activePatients = $pdo->query("
     SELECT COUNT(DISTINCT p.id) 
     FROM patients p 
     JOIN patient_packages pp ON p.id = pp.patient_id 
-    WHERE p.status = 'active' 
+    WHERE pp.active = 1 
     AND pp.end_date >= CURRENT_DATE
     AND $patientBranchCondition
 ")->fetchColumn();
@@ -72,7 +72,7 @@ if ($filterBranch === 'all') {
             SELECT COUNT(DISTINCT p.id) 
             FROM patients p 
             JOIN patient_packages pp ON p.id = pp.patient_id 
-            WHERE p.status = 'active' 
+            WHERE pp.active = 1 
             AND pp.end_date >= CURRENT_DATE
             AND p.branch_id = $bid
         ")->fetchColumn();
