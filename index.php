@@ -5,7 +5,8 @@
 // Error handling wrapper
 try {
     // Environment detection
-    $isProduction = !(isset($_SERVER['SERVER_NAME']) && in_array($_SERVER['SERVER_NAME'], ['localhost', '127.0.0.1']));
+    // $isProduction = !(isset($_SERVER['SERVER_NAME']) && in_array($_SERVER['SERVER_NAME'], ['localhost', '127.0.0.1']));
+    $isProduction = false; // Forçado para exibir erros na tela
 
     if ($isProduction) {
         // Production: hide errors from visitors, log them instead
