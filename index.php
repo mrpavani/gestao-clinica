@@ -453,14 +453,17 @@ try {
     
     <script src="public/assets/js/ui-helper.js?v=<?=time()?>"></script>
     <?php
-    // Check for session messages
-    if (isset($_SESSION['success_msg'])) {
-        echo "<script>window.onload = () => UIHelper.showNotification('" . addslashes($_SESSION['success_msg']) . "', 'success');</script>";
-        unset($_SESSION['success_msg']);
-    }
-    if (isset($_SESSION['error_msg'])) {
-        echo "<script>window.onload = () => UIHelper.showNotification('" . addslashes($_SESSION['error_msg']) . "', 'error');</script>";
-        unset($_SESSION['error_msg']);
+    // Only emit UIHelper notifications for pages that share the index.php layout.
+    // Auth pages (login, forgot_password, etc.) have their own full HTML + scripts.
+    if (!in_array($page, $hideNavPages)) {
+        if (isset($_SESSION['success_msg'])) {
+            echo "<script>document.addEventListener('DOMContentLoaded', () => UIHelper.showNotification('" . addslashes($_SESSION['success_msg']) . "', 'success'));</script>";
+            unset($_SESSION['success_msg']);
+        }
+        if (isset($_SESSION['error_msg'])) {
+            echo "<script>document.addEventListener('DOMContentLoaded', () => UIHelper.showNotification('" . addslashes($_SESSION['error_msg']) . "', 'error'));</script>";
+            unset($_SESSION['error_msg']);
+        }
     }
     ?>
 </body>

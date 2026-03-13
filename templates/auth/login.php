@@ -174,21 +174,18 @@
         </div>
     </div>
 
-    <script src="public/assets/js/notifications.js"></script>
+    <script src="public/assets/js/ui-helper.js"></script>
     <script>
-        // Check for error parameters in URL and show notifications
         window.addEventListener('DOMContentLoaded', () => {
-            const params = new URLSearchParams(window.location.search);
-            const error = params.get('error');
-            
-            if (error === 'invalid') {
-                showNotification('Usuário ou senha inválidos.', 'error');
-            } else if (error === 'logout') {
-                showNotification('Você foi desconectado com sucesso.', 'success');
-            } else if (error === 'unauthorized') {
-                showNotification('Acesso restrito. Por favor, faça login.', 'warning');
-            }
-            
+            <?php if (isset($_SESSION['error_msg'])): ?>
+            UIHelper.showNotification('<?= addslashes($_SESSION['error_msg']) ?>', 'error');
+            <?php unset($_SESSION['error_msg']); ?>
+            <?php endif; ?>
+            <?php if (isset($_SESSION['success_msg'])): ?>
+            UIHelper.showNotification('<?= addslashes($_SESSION['success_msg']) ?>', 'success');
+            <?php unset($_SESSION['success_msg']); ?>
+            <?php endif; ?>
+
             // Auto-clear for some browsers
             setTimeout(() => {
                 document.getElementById('username') && (document.getElementById('username').value = '');
