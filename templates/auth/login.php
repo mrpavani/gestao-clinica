@@ -69,22 +69,24 @@
             margin-bottom: 1.5rem;
         }
 
-        .input-group i {
+        .input-group .input-icon {
             position: absolute;
             left: 1rem;
             top: 50%;
             transform: translateY(-50%);
             color: var(--text-tertiary);
             transition: color 0.3s;
+            pointer-events: none;
         }
 
         .input-group input {
             width: 100%;
-            padding: 0.8rem 1rem 0.8rem 2.8rem;
+            padding: 0.8rem 2.8rem 0.8rem 2.8rem;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             background: var(--surface-secondary);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-sizing: border-box;
         }
 
         .input-group input:focus {
@@ -93,7 +95,24 @@
             background: var(--surface-color);
         }
 
-        .input-group input:focus + i {
+        .toggle-password {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-tertiary);
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s;
+            z-index: 2;
+        }
+
+        .toggle-password:hover {
             color: var(--primary-color);
         }
 
@@ -138,7 +157,7 @@
 
         <form method="POST" action="?page=login_action" autocomplete="off">
             <div class="input-group">
-                <i class="fa-solid fa-user"></i>
+                <i class="fa-solid fa-user input-icon"></i>
                 <input 
                     type="text" 
                     id="username" 
@@ -146,20 +165,23 @@
                     required 
                     autofocus
                     placeholder="Usuário"
-                    autocomplete="off"
+                    autocomplete="username"
                 >
             </div>
 
             <div class="input-group">
-                <i class="fa-solid fa-lock"></i>
+                <i class="fa-solid fa-lock input-icon"></i>
                 <input 
                     type="password" 
                     id="password" 
                     name="password" 
                     required
                     placeholder="Senha"
-                    autocomplete="new-password"
+                    autocomplete="current-password"
                 >
+                <button type="button" class="toggle-password" id="togglePassword" title="Mostrar/ocultar senha" aria-label="Mostrar senha">
+                    <i class="fa-solid fa-eye" id="togglePasswordIcon"></i>
+                </button>
             </div>
 
             <button type="submit" class="btn btn-primary btn-login">
@@ -186,11 +208,19 @@
             <?php unset($_SESSION['success_msg']); ?>
             <?php endif; ?>
 
-            // Auto-clear for some browsers
-            setTimeout(() => {
-                document.getElementById('username') && (document.getElementById('username').value = '');
-                document.getElementById('password') && (document.getElementById('password').value = '');
-            }, 150);
+            // Toggle password visibility
+            const toggleBtn = document.getElementById('togglePassword');
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('togglePasswordIcon');
+
+            if (toggleBtn && passwordInput) {
+                toggleBtn.addEventListener('click', () => {
+                    const isPassword = passwordInput.type === 'password';
+                    passwordInput.type = isPassword ? 'text' : 'password';
+                    toggleIcon.className = isPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+                    toggleBtn.setAttribute('aria-label', isPassword ? 'Ocultar senha' : 'Mostrar senha');
+                });
+            }
         });
     </script>
 </body>
