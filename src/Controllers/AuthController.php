@@ -28,6 +28,7 @@ class AuthController {
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['professional_id'] = $user['professional_id'];
+            $_SESSION['branch_id'] = $user['branch_id'];
             
             return true;
         }
@@ -62,7 +63,8 @@ class AuthController {
             'id' => $_SESSION['user_id'],
             'username' => $_SESSION['username'],
             'role' => $_SESSION['role'],
-            'professional_id' => $_SESSION['professional_id']
+            'professional_id' => $_SESSION['professional_id'],
+            'branch_id' => $_SESSION['branch_id'] ?? null
         ];
     }
 
@@ -83,7 +85,7 @@ class AuthController {
     /**
      * Create new user (admin only)
      */
-    public function createUser($username, $password, $role, $professional_id = null) {
+    public function createUser($username, $password, $role, $professional_id = null, $branch_id = null) {
         if (!self::isAdmin()) {
             return ['success' => false, 'message' => 'Acesso negado. Apenas administradores podem criar usuários.'];
         }
@@ -108,11 +110,11 @@ class AuthController {
 
         // Create user
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
-        $sql = "INSERT INTO users (username, password_hash, role, professional_id) VALUES (?, ?, ?, ?)";
+        $sql = "INSERT INTO users (username, password_hash, role, professional_id, branch_id) VALUES (?, ?, ?, ?, ?)";
         $stmt = $this->pdo->prepare($sql);
         
         try {
-            $stmt->execute([$username, $password_hash, $role, $professional_id]);
+            $stmt->execute([$username, $password_hash, $role, $professional_id, $branch_id]);
             return ['success' => true, 'message' => 'Usuário criado com sucesso!'];
         } catch (Exception $e) {
             return ['success' => false, 'message' => 'Erro ao criar usuário: ' . $e->getMessage()];
@@ -160,7 +162,7 @@ class AuthController {
     /**
      * Update user data (admin only)
      */
-    public function updateUser($user_id, $username, $password, $role, $professional_id = null) {
+    public function updateUser($user_id, $username, $password, $role, $professional_id = null, $branch_id = null) {
         if (!self::isAdmin()) {
             return ['success' => false, 'message' => 'Acesso negado.'];
         }
@@ -186,11 +188,11 @@ class AuthController {
                     return ['success' => false, 'message' => 'A senha deve ter pelo menos 6 caracteres.'];
                 }
                 $password_hash = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $this->pdo->prepare("UPDATE users SET username = ?, password_hash = ?, role = ?, professional_id = ? WHERE id = ?");
-                $stmt->execute([$username, $password_hash, $role, $professional_id ?: null, $user_id]);
+                $stmt = $this->pdo->prepare("UPDATE users SET username = ?, password_hash = ?, role = ?, professional_id = ?, branch_id = ? WHERE id = ?");
+                $stmt->execute([$username, $password_hash, $role, $professional_id ?: null, $branch_id ?: null, $user_id]);
             } else {
-                $stmt = $this->pdo->prepare("UPDATE users SET username = ?, role = ?, professional_id = ? WHERE id = ?");
-                $stmt->execute([$username, $role, $professional_id ?: null, $user_id]);
+                $stmt = $this->pdo->prepare("UPDATE users SET username = ?, role = ?, professional_id = ?, branch_id = ? WHERE id = ?");
+                $stmt->execute([$username, $role, $professional_id ?: null, $branch_id ?: null, $user_id]);
             }
             return ['success' => true, 'message' => 'Usuário atualizado com sucesso!'];
         } catch (Exception $e) {

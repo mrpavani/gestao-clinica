@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `username`             varchar(100) NOT NULL,
   `password_hash`        varchar(255) NOT NULL,
   `role`                 varchar(50)  DEFAULT 'user',
+  `branch_id`            int          DEFAULT NULL,
   `professional_id`      int          DEFAULT NULL,
   `active`               tinyint(1)   DEFAULT '1',
   `last_login`           datetime     DEFAULT NULL,
@@ -75,7 +76,9 @@ CREATE TABLE IF NOT EXISTS `users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`),
   KEY `idx_professional` (`professional_id`),
-  CONSTRAINT `users_fk_professional` FOREIGN KEY (`professional_id`) REFERENCES `professionals` (`id`) ON DELETE SET NULL
+  KEY `idx_branch` (`branch_id`),
+  CONSTRAINT `users_fk_professional` FOREIGN KEY (`professional_id`) REFERENCES `professionals` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `users_fk_branch` FOREIGN KEY (`branch_id`) REFERENCES `branches` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- patients (Pacientes)
