@@ -200,11 +200,11 @@
     <script>
         window.addEventListener('DOMContentLoaded', () => {
             <?php if (isset($_SESSION['error_msg'])): ?>
-            UIHelper.showNotification('<?= addslashes($_SESSION['error_msg']) ?>', 'error');
+            UI.showToast('<?= addslashes($_SESSION['error_msg']) ?>', 'error');
             <?php unset($_SESSION['error_msg']); ?>
             <?php endif; ?>
             <?php if (isset($_SESSION['success_msg'])): ?>
-            UIHelper.showNotification('<?= addslashes($_SESSION['success_msg']) ?>', 'success');
+            UI.showToast('<?= addslashes($_SESSION['success_msg']) ?>', 'success');
             <?php unset($_SESSION['success_msg']); ?>
             <?php endif; ?>
 
