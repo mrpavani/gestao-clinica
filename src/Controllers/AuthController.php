@@ -29,6 +29,13 @@ class AuthController {
             $_SESSION['role'] = $user['role'];
             $_SESSION['professional_id'] = $user['professional_id'];
             $_SESSION['branch_id'] = $user['branch_id'];
+            if ($user['branch_id']) {
+                $branchStmt = $this->pdo->prepare("SELECT name FROM branches WHERE id = ?");
+                $branchStmt->execute([$user['branch_id']]);
+                if ($branch = $branchStmt->fetch()) {
+                    $_SESSION['branch_name'] = $branch['name'];
+                }
+            }
             
             return true;
         }
