@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $controller->saveSchedules($id, $newSchedules);
                 
-                header("Location: ?page=professionals");
+                echo '<script>window.location.href="?page=professionals";</script>';
                 exit;
             } else {
                 $error = 'Erro ao atualizar profissional. Pode haver um profissional com este nome já cadastrado.';
@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Setting error and preventing redirect so user can see it
                         $error = 'Profissional cadastrado, mas falha ao criar o acesso do usuário: ' . $userRes['message'];
                     } else {
-                        header("Location: ?page=professionals");
+                        echo '<script>window.location.href="?page=professionals";</script>';
                         exit;
                     }
                 } else {
@@ -306,6 +306,16 @@ function addSkill() {
 
 function removeSkill(button) {
     button.closest('.skill-row').remove();
+}
+function toggleSchedule(checkbox, dayNum) {
+    const container = document.getElementById('sched_time_' + dayNum);
+    if (checkbox.checked) {
+        container.style.opacity = '1';
+        container.style.pointerEvents = 'auto';
+    } else {
+        container.style.opacity = '0.4';
+        container.style.pointerEvents = 'none';
+    }
 }
 </script>
 

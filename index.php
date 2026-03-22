@@ -93,109 +93,13 @@ try {
     $currentBranchName = BranchController::getCurrentBranchName();
 
 
+    $hideNavPages = ['login', 'select_branch', 'forgot_password', 'reset_password'];
 ?>
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexo System</title>
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <link rel="icon" type="image/png" href="public/assets/img/logo.png">
-    <link rel="stylesheet" href="public/assets/css/style.css?v=<?=time()?>">
-    <!-- FontAwesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="public/assets/css/notifications.css?v=<?=time()?>">
-</head>
-<body>
-    <!-- Notification Container -->
-    <div id="notification-container"></div>
-
-    <?php $hideNavPages = ['login', 'select_branch', 'forgot_password', 'reset_password']; ?>
-    <?php if (!in_array($page, $hideNavPages)): ?>
-    <nav class="sidebar">
-        <div class="brand">
-            <img src="public/assets/img/logo.png" alt="Nexo Logo" class="brand-logo">
-            <span>Nexo System</span>
-        </div>
-        
-        <!-- Current Branch Badge -->
-        <?php if ($currentBranchName): ?>
-        <div style="background: #E0F2FE; border-radius: var(--radius-md); padding: 0.5rem 0.75rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-            <i class="fa-solid fa-building" style="color: var(--primary-color);"></i>
-            <span style="font-weight: 500; color: var(--primary-color); font-size: 0.9rem;"><?= htmlspecialchars($currentBranchName) ?></span>
-            <a href="?page=select_branch" style="margin-left: auto; font-size: 0.8rem; color: var(--text-secondary);" title="Trocar Filial">
-                <i class="fa-solid fa-arrows-rotate"></i>
-            </a>
-        </div>
-        <?php endif; ?>
-        
-        <ul class="nav-links">
-            <?php if (AuthController::isAdmin()): ?>
-            <li class="nav-item">
-                <a href="?page=dashboard" class="<?= $page === 'dashboard' ? 'active' : '' ?>">
-                    <i class="fa-solid fa-chart-pie"></i> Dashboard
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="?page=professionals" class="<?= $page === 'professionals' || $page === 'professionals_new' ? 'active' : '' ?>">
-                    <i class="fa-solid fa-user-doctor"></i> Profissionais
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="?page=patients" class="<?= strpos($page, 'patient') === 0 ? 'active' : '' ?>">
-                    <i class="fa-solid fa-users"></i> Pacientes
-                </a>
-            </li>
-            <li class="nav-item">
-                <a href="?page=therapies" class="<?= $page === 'therapies' ? 'active' : '' ?>">
-                    <i class="fa-solid fa-hands-holding-child"></i> Terapias
-                </a>
-            </li>
-            <?php endif; ?>
-            <li class="nav-item">
-                <a href="?page=schedule" class="<?= $page === 'schedule' ? 'active' : '' ?>">
-                    <i class="fa-regular fa-calendar-days"></i> Agenda
-                </a>
-            </li>
-            <?php if (AuthController::isAdmin()): ?>
-            <li class="nav-item" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                <a href="?page=settings" class="<?= in_array($page, ['settings', 'specialties', 'specialties_new']) ? 'active' : '' ?>">
-                    <i class="fa-solid fa-gear"></i> Configurações
-                </a>
-            </li>
-            <?php endif; ?>
-        </ul>
-        
-        <!-- User Menu --><div class="sidebar-footer-menu">
-            <div class="user-info">
-                <i class="fa-solid fa-circle-user"></i>
-                <span><?= htmlspecialchars($currentUser['username'] ?? '') ?></span>
-            </div>
-            
-            <a href="?page=change_password" class="btn" style="margin-bottom: 0.5rem; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: white;">
-                <i class="fa-solid fa-key"></i> Alterar Senha
-            </a>
-            
-            <?php if (AuthController::isAdmin()): ?>
-            <a href="?page=branches" class="btn">
-                <i class="fa-solid fa-building"></i> Gerenciar Filiais
-            </a>
-            <a href="?page=users" class="btn">
-                <i class="fa-solid fa-users-gear"></i> Gerenciar Usuários
-            </a>
-            <?php endif; ?>
-            <a href="?page=logout" class="btn" style="background: #ef4444; color: white;">
-                <i class="fa-solid fa-right-from-bracket"></i> Sair
-            </a>
-        </div>
-    </nav>
+<?php if (!in_array($page, $hideNavPages)): ?>
+<?php require_once 'templates/layout/header.php'; ?>
+<?php require_once 'templates/layout/sidebar.php'; ?>
 
     <main class="main-content">
-    <?php else: ?>
-    <!-- Full screen page renders its own complete layout -->
     <?php endif; ?>
         <?php
         // Simple View Router
@@ -449,25 +353,9 @@ try {
         ?>
     <?php if (!in_array($page, $hideNavPages)): ?>
     </main>
-    <?php endif; ?>
     
-    <script src="public/assets/js/ui-helper.js?v=<?=time()?>"></script>
-    <?php
-    // Only emit UI notifications for pages that share the index.php layout.
-    // Auth pages (login, forgot_password, etc.) have their own full HTML + scripts.
-    if (!in_array($page, $hideNavPages)) {
-        if (isset($_SESSION['success_msg'])) {
-            echo "<script>document.addEventListener('DOMContentLoaded', () => UI.showToast('" . addslashes($_SESSION['success_msg']) . "', 'success'));</script>";
-            unset($_SESSION['success_msg']);
-        }
-        if (isset($_SESSION['error_msg'])) {
-            echo "<script>document.addEventListener('DOMContentLoaded', () => UI.showToast('" . addslashes($_SESSION['error_msg']) . "', 'error'));</script>";
-            unset($_SESSION['error_msg']);
-        }
-    }
-    ?>
-</body>
-</html>
+    <?php require_once 'templates/layout/footer.php'; ?>
+<?php endif; ?>
 <?php
 } catch (Exception $e) {
     // Log the error regardless of environment

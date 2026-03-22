@@ -292,7 +292,8 @@ class AppointmentController {
             if (!$appt) {
                 return ['success' => false, 'error' => 'Agendamento não encontrado.'];
             }
-            $durationMinutes = (new DateTime($appt['end_time']))->diff(new DateTime($appt['start_time']))->i;
+            $diff = (new DateTime($appt['start_time']))->diff(new DateTime($appt['end_time']));
+            $durationMinutes = $diff->h * 60 + $diff->i;
             $start = new DateTime($newStartTime);
             $end = clone $start;
             $end->modify("+$durationMinutes minutes");
@@ -374,6 +375,22 @@ class AppointmentController {
         $created  = 0;
         $skipped  = [];
 
+        // Check branch isolation once before the loop (same professional/patient for all dates)
+        $branchId = $_SESSION['branch_id'] ?? null;
+        if ($branchId) {
+            $profController    = new ProfessionalController();
+            $patientController = new PatientController();
+            $prof    = $profController->getById($professionalId);
+            $patient = $patientController->getById($patientId);
+            if ($prof && $prof['branch_id'] != $branchId) {
+                return ['success' => false, 'error' => 'Profissional pertence a outra unidade.'];
+            }
+            if ($patient && $patient['branch_id'] != $branchId) {
+                return ['success' => false, 'error' => 'Paciente pertence a outra unidade.'];
+            }
+        }
+        $patientController = $patientController ?? new PatientController();
+
         foreach ($dates as $date) {
             $sessionStart = $date->format('Y-m-d') . ' ' . $timeOfDay;
             $sessionStartDt = new DateTime($sessionStart);
@@ -385,23 +402,8 @@ class AppointmentController {
             $month    = $sessionStartDt->format('m');
             $year     = $sessionStartDt->format('Y');
 
-            // Check branch isolation
-            $branchId = $_SESSION['branch_id'] ?? null;
-            if ($branchId) {
-                $prof    = (new ProfessionalController())->getById($professionalId);
-                $patient = (new PatientController())->getById($patientId);
-                if ($prof && $prof['branch_id'] != $branchId) {
-                    $skipped[] = $dateOnly . ' (profissional de outra unidade)';
-                    continue;
-                }
-                if ($patient && $patient['branch_id'] != $branchId) {
-                    $skipped[] = $dateOnly . ' (paciente de outra unidade)';
-                    continue;
-                }
-            }
-
             // Check active package
-            $allowedTherapies = (new PatientController())->getActivePackageTherapies($patientId, $dateOnly);
+            $allowedTherapies = $patientController->getActivePackageTherapies($patientId, $dateOnly);
             $matched = null;
             foreach ($allowedTherapies as $at) {
                 if ($at['therapy_id'] == $therapyId) { $matched = $at; break; }

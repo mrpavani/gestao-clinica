@@ -1,7 +1,7 @@
 <?php
 // templates/auth/users_list.php
 if (!AuthController::isAdmin()) {
-    header('Location: ?page=dashboard');
+    echo '<script>window.location.href="?page=dashboard";</script>';
     exit;
 }
 
@@ -22,8 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Handle user deletion
 if (isset($_GET['delete_id'])) {
     $result = $controller->deleteUser($_GET['delete_id']);
-    $message = $result;
-    header('Location: ?page=users');
+    echo '<script>window.location.href="?page=users&success=1";</script>';
     exit;
 }
 ?>

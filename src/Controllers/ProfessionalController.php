@@ -19,16 +19,31 @@ class ProfessionalController {
             $stmt = $this->pdo->query("SELECT * FROM professionals ORDER BY name ASC");
         }
         $professionals = $stmt->fetchAll();
-        
+
+        if (empty($professionals)) {
+            return $professionals;
+        }
+
+        // Load all specialties in a single query (avoids N+1)
+        $ids = array_column($professionals, 'id');
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmtSpec = $this->pdo->prepare("
+            SELECT s.*, ps.professional_id
+            FROM specialties s
+            JOIN professional_specialties ps ON s.id = ps.specialty_id
+            WHERE ps.professional_id IN ($placeholders)
+        ");
+        $stmtSpec->execute($ids);
+        $allSpecialties = $stmtSpec->fetchAll();
+
+        // Index specialties by professional_id
+        $specialtiesByProf = [];
+        foreach ($allSpecialties as $spec) {
+            $specialtiesByProf[$spec['professional_id']][] = $spec;
+        }
+
         foreach ($professionals as &$prof) {
-            $stmtSpec = $this->pdo->prepare("
-                SELECT s.* 
-                FROM specialties s 
-                JOIN professional_specialties ps ON s.id = ps.specialty_id 
-                WHERE ps.professional_id = ?
-            ");
-            $stmtSpec->execute([$prof['id']]);
-            $prof['specialties'] = $stmtSpec->fetchAll();
+            $prof['specialties'] = $specialtiesByProf[$prof['id']] ?? [];
         }
         return $professionals;
     }
@@ -171,8 +186,27 @@ class ProfessionalController {
     
     public function getAllWithSkills() {
         $professionals = $this->getAll();
+
+        if (empty($professionals)) {
+            return $professionals;
+        }
+
+        // Load all skills in a single query (avoids N+1)
+        $ids = array_column($professionals, 'id');
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmtSkills = $this->pdo->prepare(
+            "SELECT * FROM professional_skills WHERE professional_id IN ($placeholders) ORDER BY skill_type, skill_name"
+        );
+        $stmtSkills->execute($ids);
+        $allSkills = $stmtSkills->fetchAll();
+
+        $skillsByProf = [];
+        foreach ($allSkills as $skill) {
+            $skillsByProf[$skill['professional_id']][] = $skill;
+        }
+
         foreach ($professionals as &$prof) {
-            $prof['skills'] = $this->getSkills($prof['id']);
+            $prof['skills'] = $skillsByProf[$prof['id']] ?? [];
         }
         return $professionals;
     }

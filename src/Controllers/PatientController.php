@@ -232,14 +232,28 @@ class PatientController {
         $stmt->execute([$patientId]);
         $packages = $stmt->fetchAll();
 
+        if (empty($packages)) {
+            return $packages;
+        }
+
+        // Load all items for all packages in a single query (avoids N+1)
+        $ids = array_column($packages, 'id');
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $sqlItems = "SELECT pi.*, t.name as therapy_name
+                     FROM package_items pi
+                     JOIN therapies t ON pi.therapy_id = t.id
+                     WHERE pi.package_id IN ($placeholders)";
+        $stmtItems = $this->pdo->prepare($sqlItems);
+        $stmtItems->execute($ids);
+        $allItems = $stmtItems->fetchAll();
+
+        $itemsByPackage = [];
+        foreach ($allItems as $item) {
+            $itemsByPackage[$item['package_id']][] = $item;
+        }
+
         foreach ($packages as &$pkg) {
-            $sqlItems = "SELECT pi.*, t.name as therapy_name 
-                         FROM package_items pi 
-                         JOIN therapies t ON pi.therapy_id = t.id 
-                         WHERE pi.package_id = ?";
-            $stmtItems = $this->pdo->prepare($sqlItems);
-            $stmtItems->execute([$pkg['id']]);
-            $pkg['items'] = $stmtItems->fetchAll();
+            $pkg['items'] = $itemsByPackage[$pkg['id']] ?? [];
         }
 
         return $packages;

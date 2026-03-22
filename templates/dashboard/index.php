@@ -18,74 +18,109 @@ if (isset($_GET['switch_branch']) && AuthController::isAdmin()) {
     exit;
 }
 
-// Build branch condition for queries
-if ($filterBranch === 'all') {
-    $branchCondition = "1=1"; // No filter
-    $patientBranchCondition = "1=1";
-} else {
-    $branchId = $currentBranchId ?? 0;
-    $branchCondition = "a.branch_id = $branchId";
-    $patientBranchCondition = "p.branch_id = $branchId";
-}
+// Build branch filter params for prepared statements
+$filterAll = ($filterBranch === 'all');
+$branchId  = $currentBranchId ?? 0;
+$today     = date('Y-m-d');
 
 // 1. Total Active Patients
-$activePatients = $pdo->query("
-    SELECT COUNT(DISTINCT p.id) 
-    FROM patients p 
-    JOIN patient_packages pp ON p.id = pp.patient_id 
-    WHERE pp.active = 1 
-    AND pp.end_date >= CURRENT_DATE
-    AND $patientBranchCondition
-")->fetchColumn();
+if ($filterAll) {
+    $activePatients = $pdo->query("
+        SELECT COUNT(DISTINCT p.id)
+        FROM patients p
+        JOIN patient_packages pp ON p.id = pp.patient_id
+        WHERE pp.active = 1 AND pp.end_date >= CURRENT_DATE
+    ")->fetchColumn();
+} else {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(DISTINCT p.id)
+        FROM patients p
+        JOIN patient_packages pp ON p.id = pp.patient_id
+        WHERE pp.active = 1 AND pp.end_date >= CURRENT_DATE AND p.branch_id = ?
+    ");
+    $stmt->execute([$branchId]);
+    $activePatients = $stmt->fetchColumn();
+}
 
 // 2. Appointments Today
-$today = date('Y-m-d');
-$todayStats = $pdo->query("
-    SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-        SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) as scheduled
-    FROM appointments a
-    WHERE DATE(start_time) = '$today'
-    AND $branchCondition
-")->fetch(PDO::FETCH_ASSOC);
+if ($filterAll) {
+    $stmt = $pdo->prepare("
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) as scheduled
+        FROM appointments a
+        WHERE DATE(start_time) = ?
+    ");
+    $stmt->execute([$today]);
+} else {
+    $stmt = $pdo->prepare("
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN a.status = 'completed' THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN a.status = 'scheduled' THEN 1 ELSE 0 END) as scheduled
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        WHERE DATE(a.start_time) = ? AND p.branch_id = ?
+    ");
+    $stmt->execute([$today, $branchId]);
+}
+$todayStats = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // 3. Appointments This Month
 $monthStart = date('Y-m-01');
-$monthEnd = date('Y-m-t');
-$monthStats = $pdo->query("
-    SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-        SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) as scheduled
-    FROM appointments a
-    WHERE DATE(start_time) BETWEEN '$monthStart' AND '$monthEnd'
-    AND $branchCondition
-")->fetch(PDO::FETCH_ASSOC);
+$monthEnd   = date('Y-m-t');
+if ($filterAll) {
+    $stmt = $pdo->prepare("
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) as scheduled
+        FROM appointments a
+        WHERE DATE(start_time) BETWEEN ? AND ?
+    ");
+    $stmt->execute([$monthStart, $monthEnd]);
+} else {
+    $stmt = $pdo->prepare("
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN a.status = 'completed' THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN a.status = 'scheduled' THEN 1 ELSE 0 END) as scheduled
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        WHERE DATE(a.start_time) BETWEEN ? AND ? AND p.branch_id = ?
+    ");
+    $stmt->execute([$monthStart, $monthEnd, $branchId]);
+}
+$monthStats = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Stats per branch (for "all" view)
+// Stats per branch (for "all" view) — consolidated into 2 queries instead of 2×N
 $branchStats = [];
-if ($filterBranch === 'all') {
+if ($filterAll) {
+    $patientsByBranch = $pdo->query("
+        SELECT p.branch_id, COUNT(DISTINCT p.id) as cnt
+        FROM patients p
+        JOIN patient_packages pp ON p.id = pp.patient_id
+        WHERE pp.active = 1 AND pp.end_date >= CURRENT_DATE
+        GROUP BY p.branch_id
+    ")->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    $stmt = $pdo->prepare("
+        SELECT p.branch_id, COUNT(*) as cnt
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        WHERE DATE(a.start_time) = ?
+        GROUP BY p.branch_id
+    ");
+    $stmt->execute([$today]);
+    $todayByBranch = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
     foreach ($branches as $branch) {
         $bid = $branch['id'];
-        $bPatients = $pdo->query("
-            SELECT COUNT(DISTINCT p.id) 
-            FROM patients p 
-            JOIN patient_packages pp ON p.id = pp.patient_id 
-            WHERE pp.active = 1 
-            AND pp.end_date >= CURRENT_DATE
-            AND p.branch_id = $bid
-        ")->fetchColumn();
-        
-        $bToday = $pdo->query("
-            SELECT COUNT(*) FROM appointments 
-            WHERE DATE(start_time) = '$today' AND branch_id = $bid
-        ")->fetchColumn();
-        
         $branchStats[$bid] = [
-            'name' => $branch['name'],
-            'patients' => $bPatients,
-            'today' => $bToday
+            'name'     => $branch['name'],
+            'patients' => $patientsByBranch[$bid] ?? 0,
+            'today'    => $todayByBranch[$bid] ?? 0,
         ];
     }
 }
