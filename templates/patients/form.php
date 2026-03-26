@@ -11,12 +11,29 @@ $message = '';
 $error = '';
 $id = $_GET['id'] ?? null;
 $patient = null;
+$activePackage = null;
+$currentSessions = [];
+$currentGoals = [];
 
 if ($id) {
     $patient = $controller->getById($id);
     if (!$patient) {
         echo "Paciente não encontrado.";
         exit;
+    }
+    // Load current package and PEI for edit mode
+    $packages = $controller->getPackages($id);
+    $activePackage = !empty($packages) ? $packages[0] : null;
+    if ($activePackage && isset($activePackage['items'])) {
+        foreach ($activePackage['items'] as $item) {
+            $currentSessions[$item['therapy_id']] = $item['sessions_per_month'];
+        }
+    }
+    $plannings = $controller->getPlannings($id);
+    foreach ($plannings as $plan) {
+        if ($plan['status'] === 'active') {
+            $currentGoals[$plan['therapy_id']] = $plan['goals'];
+        }
     }
 }
 
@@ -27,21 +44,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $guardian = $_POST['guardian_name'] ?? '';
     $contact = $_POST['contact_info'] ?? '';
 
-    // Validation for Minors (Simple check: if < 18, guardian required)
-    $isMinor = false;
-    if ($dob) {
-        $age = date_diff(date_create($dob), date_create('today'))->y;
-        if ($age < 18) $isMinor = true;
-    }
-
     if (!$name || !$dob) {
-        $error = 'Nome e Data de Nascimento são obrigatórios.';
-    } elseif ($isMinor && (!$guardian || !$contact)) {
-        $error = 'Para menores de 18 anos, Nome do Responsável e Contato são obrigatórios.';
+        $error = 'Nome e Data de Nascimento são obrigatórios';
     } else {
         if ($id) {
-            // Edit Mode - Only updates personal info
+            // Edit Mode - Updates personal info + contract/therapies
             if ($controller->update($id, $name, $dob, $guardian, $contact)) {
+                // Also update contract and therapies if provided
+                $contractStart = $_POST['start_date'] ?? '';
+                $contractEnd = $_POST['end_date'] ?? '';
+                $packageItems = [];
+                $peiGoals = [];
+                foreach ($therapies as $therapy) {
+                    $tid = $therapy['id'];
+                    $sessions = (int)($_POST['sessions_' . $tid] ?? 0);
+                    if ($sessions > 0) {
+                        $packageItems[] = ['therapy_id' => $tid, 'sessions' => $sessions];
+                        $goal = trim($_POST['goals_' . $tid] ?? '');
+                        if ($goal) $peiGoals[$tid] = $goal;
+                    }
+                }
+                // Reload packages to get the active one
+                $pkgs = $controller->getPackages($id);
+                $activePkg = !empty($pkgs) ? $pkgs[0] : null;
+                if ($contractStart && $contractEnd) {
+                    if ($activePkg) {
+                        $controller->updatePackage($activePkg['id'], $contractStart, $contractEnd, $packageItems);
+                    } else {
+                        $controller->createPackage($id, $contractStart, $contractEnd, $packageItems);
+                    }
+                }
+                foreach ($peiGoals as $tid => $goal) {
+                    $controller->upsertPEI($id, $tid, $goal);
+                }
                 header("Location: ?page=patients_view&id=$id");
                 exit;
             } else {
@@ -140,7 +175,7 @@ foreach ($therapies as $t) {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group">
                 <label for="dob">Data de Nascimento *</label>
-                <input type="date" id="dob" name="dob" required value="<?= $patient ? $patient['dob'] : '' ?>" onchange="checkAge()" autocomplete="new-password">
+                <input type="date" id="dob" name="dob" required value="<?= $patient ? $patient['dob'] : '' ?>" autocomplete="new-password">
             </div>
             <div class="form-group">
                 <label for="contact_info">Contato (Telefone/Email)</label>
@@ -150,8 +185,7 @@ foreach ($therapies as $t) {
 
         <div class="form-group">
             <label for="guardian_name">Nome do Responsável / Mãe</label>
-            <input type="text" id="guardian_name" name="guardian_name" placeholder="Obrigatório para menores de 18 anos" value="<?= $patient ? htmlspecialchars($patient['guardian_name']) : '' ?>">
-            <small id="ageWarning" style="color: var(--danger-color); display: none;">* Obrigatório para menor de 18 anos</small>
+            <input type="text" id="guardian_name" name="guardian_name" placeholder="Opcional" value="<?= $patient ? htmlspecialchars($patient['guardian_name']) : '' ?>">
         </div>
 
         <?php if (!$id): // Sections below ONLY for new registration ?>
@@ -203,8 +237,50 @@ foreach ($therapies as $t) {
             </div>
 
         <?php else: ?>
-            <div style="margin-top: 2rem; background: #FFF7ED; color: #9A3412; padding: 1rem; border-radius: var(--radius-md);">
-                <i class="fa-solid fa-circle-info"></i> <strong>Nota:</strong> Para editar Contratos, Terapias e PEI, utilize a página de perfil do paciente.
+            <!-- SECTION 2: Contract Data (Edit Mode) -->
+            <div style="margin-top: 2rem;">
+                <h3 style="color: var(--primary-color); margin-bottom: 1rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem;">Dados do Contrato</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="start_date">Início do Contrato *</label>
+                        <input type="date" id="start_date" name="start_date" required value="<?= $activePackage['start_date'] ?? date('Y-m-d') ?>">
+                    </div>
+                    <div class="form-group">
+                        <label for="end_date">Fim do Contrato *</label>
+                        <input type="date" id="end_date" name="end_date" required value="<?= $activePackage['end_date'] ?? date('Y-m-d', strtotime('+1 year')) ?>">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: Therapies (Edit Mode) -->
+            <div style="margin-top: 2rem;">
+                <h3 style="color: var(--primary-color); margin-bottom: 1rem; border-bottom: 1px solid #E5E7EB; padding-bottom: 0.5rem;">Terapias e PEI</h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">Marque as terapias do paciente e defina a quantidade de sessões mensais e os objetivos do PEI.</p>
+
+                <?php foreach ($therapies as $therapy): 
+                    $tid = $therapy['id'];
+                    $sessions = $currentSessions[$tid] ?? 0;
+                    $goal = $currentGoals[$tid] ?? '';
+                    $isActive = $sessions > 0;
+                ?>
+                    <div style="background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
+                        <div style="display: flex; align-items: center; margin-bottom: <?= $isActive ? '0.5rem' : '0' ?>;">
+                            <input type="checkbox" id="edit_therapy_<?= $tid ?>" <?= $isActive ? 'checked' : '' ?> onchange="toggleEditTherapy(<?= $tid ?>)" style="width: auto; margin-right: 0.75rem;">
+                            <label for="edit_therapy_<?= $tid ?>" style="margin: 0; font-weight: 600; font-size: 1rem; color: var(--text-primary); cursor: pointer;"><?= htmlspecialchars($therapy['name']) ?></label>
+                        </div>
+
+                        <div id="edit_fields_<?= $tid ?>" style="display: <?= $isActive ? 'block' : 'none' ?>; padding-left: 1.75rem; margin-top: 0.5rem;">
+                            <div class="form-group">
+                                <label>Sessões por Mês</label>
+                                <input type="number" name="sessions_<?= $tid ?>" id="edit_sessions_<?= $tid ?>" min="0" value="<?= $sessions ?>" style="width: 150px;">
+                            </div>
+                            <div class="form-group">
+                                <label>Objetivos do PEI (Planejamento)</label>
+                                <textarea name="goals_<?= $tid ?>" rows="3" placeholder="Descreva os objetivos para esta terapia..."><?= htmlspecialchars($goal) ?></textarea>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
             </div>
         <?php endif; ?>
 
@@ -219,33 +295,6 @@ foreach ($therapies as $t) {
 <script>
 const therapyDocs = <?= json_encode($allTherapyDocs) ?>;
 
-function checkAge() {
-    const dobInput = document.getElementById('dob');
-    if (!dobInput.value) return;
-
-    const dob = new Date(dobInput.value);
-    const diff_ms = Date.now() - dob.getTime();
-    const age_dt = new Date(diff_ms);
-    const age = Math.abs(age_dt.getUTCFullYear() - 1970);
-
-    const guardianInput = document.getElementById('guardian_name');
-    const contactInput = document.getElementById('contact_info');
-    const warning = document.getElementById('ageWarning');
-
-    if (age < 18) {
-        warning.style.display = 'inline';
-        guardianInput.required = true;
-        contactInput.required = true;
-        guardianInput.style.borderColor = '#FCA5A5';
-        contactInput.style.borderColor = '#FCA5A5';
-    } else {
-        warning.style.display = 'none';
-        guardianInput.required = false;
-        contactInput.required = false;
-        guardianInput.style.borderColor = '#E5E7EB';
-        contactInput.style.borderColor = '#E5E7EB';
-    }
-}
 
 function toggleTherapyFields(id) {
     const checkbox = document.getElementById('therapy_' + id);
@@ -255,6 +304,19 @@ function toggleTherapyFields(id) {
         renderDocs(id);
     } else {
         fields.style.display = 'none';
+    }
+}
+
+function toggleEditTherapy(tid) {
+    const checkbox = document.getElementById('edit_therapy_' + tid);
+    const fields = document.getElementById('edit_fields_' + tid);
+    const sessions = document.getElementById('edit_sessions_' + tid);
+    if (checkbox.checked) {
+        fields.style.display = 'block';
+        if (sessions.value == 0) sessions.value = 4;
+    } else {
+        fields.style.display = 'none';
+        sessions.value = 0;
     }
 }
 
@@ -286,6 +348,4 @@ function renderDocs(therapyId) {
     }
 }
 
-// Initial check
-checkAge();
 </script>

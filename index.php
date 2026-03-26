@@ -2,6 +2,9 @@
 // index.php (VERIFICATION_TAG_12345)
 // Simple router/dispatcher
 
+// Enable output buffering to allow header() calls from templates
+ob_start();
+
 // Error handling wrapper
 try {
     // Environment detection: production = anything that is NOT localhost / 127.x

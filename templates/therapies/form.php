@@ -161,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <td style="padding: 0.75rem 1rem;">
                                         <label for="prof_<?= $prof['id'] ?>" style="margin: 0; cursor: pointer; display: block;">
                                             <div style="font-weight: 500; color: var(--text-primary);"><?= htmlspecialchars($prof['name']) ?></div>
-                                            <div style="font-size: 0.85rem; color: var(--text-secondary);"><?= htmlspecialchars($prof['specialty']) ?></div>
+                                            <div style="font-size: 0.85rem; color: var(--text-secondary);"><?= htmlspecialchars($prof['specialty'] ?? '') ?></div>
                                         </label>
                                     </td>
                                 </tr>
