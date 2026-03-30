@@ -305,6 +305,32 @@ class PatientController {
         return $stmt->fetchAll();
     }
 
+    public function getAllPlannings($patientId, $year = null) {
+        $year = $year ?? date('Y');
+        $sql = "SELECT p.*, t.name as therapy_name 
+                FROM patient_planning p
+                JOIN therapies t ON p.therapy_id = t.id
+                WHERE p.patient_id = ? AND p.year = ? AND p.status = 'active'
+                ORDER BY t.name ASC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$patientId, $year]);
+        return $stmt->fetchAll();
+    }
+
+    public function savePlanning($patientId, $year, $therapyId, $goals) {
+        $stmt = $this->pdo->prepare("SELECT id FROM patient_planning WHERE patient_id = ? AND therapy_id = ? AND year = ? AND status = 'active'");
+        $stmt->execute([$patientId, $therapyId, $year]);
+        $existing = $stmt->fetch();
+        
+        if ($existing) {
+            $update = $this->pdo->prepare("UPDATE patient_planning SET goals = ? WHERE id = ?");
+            return $update->execute([$goals, $existing['id']]);
+        } else {
+            $insert = $this->pdo->prepare("INSERT INTO patient_planning (patient_id, therapy_id, year, goals) VALUES (?, ?, ?, ?)");
+            return $insert->execute([$patientId, $therapyId, $year, $goals]);
+        }
+    }
+
     public function upsertPEI($patientId, $therapyId, $goals) {
         $currentYear = date('Y');
         

@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../Database.php';
 require_once __DIR__ . '/PatientController.php';
+require_once __DIR__ . '/ProfessionalController.php';
 
 class AppointmentController {
     private $pdo;
@@ -377,9 +378,9 @@ class AppointmentController {
 
         // Check branch isolation once before the loop (same professional/patient for all dates)
         $branchId = $_SESSION['branch_id'] ?? null;
+        $patientController = new PatientController();
         if ($branchId) {
-            $profController    = new ProfessionalController();
-            $patientController = new PatientController();
+            $profController = new ProfessionalController();
             $prof    = $profController->getById($professionalId);
             $patient = $patientController->getById($patientId);
             if ($prof && $prof['branch_id'] != $branchId) {
@@ -389,7 +390,6 @@ class AppointmentController {
                 return ['success' => false, 'error' => 'Paciente pertence a outra unidade.'];
             }
         }
-        $patientController = $patientController ?? new PatientController();
 
         foreach ($dates as $date) {
             $sessionStart = $date->format('Y-m-d') . ' ' . $timeOfDay;
