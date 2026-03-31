@@ -23,6 +23,7 @@ if (!AuthController::isAdmin()) {
 $planning = $patientController->getActivePlanning($appt['patient_id'], date('Y'), $appt['therapy_id']);
 
 $message = '';
+$error = $_GET['error'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $content = $_POST['content'];
@@ -54,6 +55,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?= htmlspecialchars($message) ?>
     </div>
 <?php endif; ?>
+
+<?php if ($error): ?>
+    <div style="background-color: #fee2e2; border-left: 4px solid #ef4444; color: #b91c1c; padding: 1rem; margin-bottom: 1rem; border-radius: 0.25rem;">
+        <?= htmlspecialchars($error) ?>
+    </div>
+<?php endif; ?>
     
 <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
     <!-- Context Column -->
@@ -62,9 +69,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <h3>Detalhes do Atendimento</h3>
                 <?php if (AuthController::isAdmin()): ?>
-                <a href="?page=appointment_edit&id=<?= $id ?>" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem; color: var(--primary-color);">
-                    <i class="fa-solid fa-pen"></i> Editar
-                </a>
+                <div style="display: flex; gap: 0.5rem;">
+                    <a href="?page=appointment_edit&id=<?= $id ?>" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem; color: var(--primary-color);">
+                        <i class="fa-solid fa-pen"></i> Editar
+                    </a>
+                    <a href="?page=appointment_delete&id=<?= $id ?>" class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.85rem; color: #ef4444;" onclick="return confirm('Tem certeza que deseja EXCLUIR este agendamento? Esta ação não pode ser desfeita.')">
+                        <i class="fa-solid fa-trash"></i> Excluir
+                    </a>
+                </div>
                 <?php endif; ?>
             </div>
             <p><strong>Paciente:</strong> <?= htmlspecialchars($appt['patient_name']) ?></p>

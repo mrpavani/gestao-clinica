@@ -103,7 +103,10 @@ $duration = ($end->getTimestamp() - $start->getTimestamp()) / 60;
             <textarea name="notes" rows="3"><?= htmlspecialchars($appt['notes']) ?></textarea>
         </div>
         
-        <div style="text-align: right; margin-top: 2rem;">
+        <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
+            <a href="?page=appointment_delete&id=<?= $id ?>" class="btn" style="background-color: #ef4444; color: white;" onclick="return confirm('Tem certeza que deseja EXCLUIR este agendamento? Esta ação não pode ser desfeita.')">
+                <i class="fa-solid fa-trash"></i> Excluir Agendamento
+            </a>
             <button type="submit" class="btn btn-primary">
                 Salvar Alterações
             </button>

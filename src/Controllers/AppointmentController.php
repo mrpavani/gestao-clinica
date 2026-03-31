@@ -15,7 +15,7 @@ class AppointmentController {
     public function getAppointmentsByRange($startDate, $endDate, $professionalId = null, $therapyId = null) {
         $branchId = $_SESSION['branch_id'] ?? null;
 
-        $sql = "SELECT a.*, p.name as patient_name, prof.name as professional_name, t.name as therapy_name, sn.id as has_note
+        $sql = "SELECT a.*, p.name as patient_name, prof.name as professional_name, t.name as therapy_name, t.color as therapy_color, sn.id as has_note
                 FROM appointments a
                 JOIN patients p ON a.patient_id = p.id
                 JOIN professionals prof ON a.professional_id = prof.id
@@ -49,7 +49,7 @@ class AppointmentController {
     }
 
     public function getPatientAppointments($patientId, $startDate, $endDate) {
-        $sql = "SELECT a.*, prof.name as professional_name, t.name as therapy_name
+        $sql = "SELECT a.*, prof.name as professional_name, t.name as therapy_name, t.color as therapy_color
                 FROM appointments a
                 JOIN professionals prof ON a.professional_id = prof.id
                 JOIN therapies t ON a.therapy_id = t.id
@@ -62,7 +62,7 @@ class AppointmentController {
     }
     
     public function getById($id) {
-        $sql = "SELECT a.*, p.name as patient_name, p.id as patient_id, prof.name as professional_name, prof.id as professional_id, t.name as therapy_name, t.id as therapy_id
+        $sql = "SELECT a.*, p.name as patient_name, p.id as patient_id, prof.name as professional_name, prof.id as professional_id, t.name as therapy_name, t.color as therapy_color, t.id as therapy_id
                 FROM appointments a
                 JOIN patients p ON a.patient_id = p.id
                 JOIN professionals prof ON a.professional_id = prof.id

@@ -2,7 +2,7 @@
 // config/config.php
 
 // Detect environment based on server name (or you can use an ENV variable if available)
-$serverName = $_SERVER['SERVER_NAME'] ?? 'localhost';
+$serverName = strtolower($_SERVER['SERVER_NAME'] ?? 'localhost');
 $isLocal = ($serverName === 'localhost' || $serverName === '127.0.0.1');
 
 if ($isLocal) {

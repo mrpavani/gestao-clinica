@@ -8,8 +8,8 @@ ob_start();
 // Error handling wrapper
 try {
     // Environment detection: production = anything that is NOT localhost / 127.x
-    $serverName = $_SERVER['SERVER_NAME'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $isProduction = !in_array($serverName, ['localhost', '127.0.0.1', '::1']);
+    $serverName = strtolower($_SERVER['SERVER_NAME'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost');
+    $isProduction = !in_array(explode(':', $serverName)[0], ['localhost', '127.0.0.1', '::1']);
 
     if ($isProduction) {
         // Production: hide errors from visitors, log them instead
@@ -287,6 +287,25 @@ try {
             case 'appointment_edit':
                  require_once __DIR__ . '/templates/appointments/edit.php';
                  break;
+
+            case 'appointment_delete':
+                if (!AuthController::isAdmin()) { 
+                    header('Location: ?page=schedule&error=' . urlencode('Acesso negado. Apenas administradores podem excluir agendamentos.')); 
+                    exit; 
+                }
+                $id = intval($_GET['id'] ?? 0);
+                if ($id > 0) {
+                    $controller = new AppointmentController();
+                    $result = $controller->delete($id);
+                    if ($result['success']) {
+                        header('Location: ?page=schedule&success=Agendamento+exclu%C3%ADdo+com+sucesso');
+                    } else {
+                        header('Location: ?page=appointment_notes&id=' . $id . '&error=' . urlencode($result['error']));
+                    }
+                } else {
+                    header('Location: ?page=schedule&error=' . urlencode('ID de agendamento inválido.'));
+                }
+                exit;
 
             case 'patients_record':
                  require_once __DIR__ . '/templates/patients/record.php';
