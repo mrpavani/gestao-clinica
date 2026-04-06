@@ -278,7 +278,7 @@ class PatientController {
         }
         
         // Fetch items
-        $sqlItems = "SELECT pi.*, t.name as therapy_name 
+        $sqlItems = "SELECT pi.*, t.name as therapy_name, t.default_duration_minutes 
                      FROM package_items pi 
                      JOIN therapies t ON pi.therapy_id = t.id 
                      WHERE pi.package_id = ?";

@@ -409,18 +409,53 @@ $monthName = $monthsPt[$month] ?? date('F', strtotime($startDate));
                     <i class="fa-solid fa-rotate"></i> Agendar por Recorrência
                 </label>
                 <p style="margin: 0.4rem 0 0 1.4rem; font-size: 0.8rem; color: #0369A1;">
-                    Repete semanalmente na mesma data/hora
+                    Repete em datas selecionadas
                 </p>
             </div>
 
             <!-- Recurrence Fields (hidden by default) -->
             <div id="recurrenceFields" style="display: none;">
                 <div class="form-group">
-                    <label>Repetir até (data final) *</label>
+                    <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Dias da Semana e Horários *</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; background: #fff; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: var(--radius-md);">
+                        <?php
+                            $weekdays = [
+                                1 => 'Segunda-feira',
+                                2 => 'Terça-feira',
+                                3 => 'Quarta-feira',
+                                4 => 'Quinta-feira',
+                                5 => 'Sexta-feira',
+                                6 => 'Sábado',
+                                0 => 'Domingo'
+                            ];
+                            foreach ($weekdays as $val => $name):
+                        ?>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <label style="font-weight: normal; margin: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" name="recurrence_days[]" value="<?= $val ?>" class="recurrence-day-cb" onchange="toggleRecurrenceTime(<?= $val ?>); updateRecurrencePreview();"> <?= $name ?>
+                            </label>
+                            <input type="time" name="recurrence_times[<?= $val ?>]" id="recurrence_time_<?= $val ?>" style="width: auto; display: none;" onchange="updateRecurrencePreview()">
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Finalizar Recorrência *</label>
+                    <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+                        <label style="font-weight: normal; margin:0;"><input type="radio" name="recurrence_end_type" value="date" checked onchange="toggleRecurrenceEndType()"> Em uma data</label>
+                        <label style="font-weight: normal; margin:0;"><input type="radio" name="recurrence_end_type" value="occurrences" onchange="toggleRecurrenceEndType()"> Após X sessões</label>
+                    </div>
+                    
                     <input type="date" id="repeatEndDate" name="repeat_end_date"
-                           min="<?= date('Y-m-d', strtotime('+7 days')) ?>"
+                           min="<?= date('Y-m-d') ?>"
                            onchange="updateRecurrencePreview()"
                            style="width: 100%;">
+                    
+                    <input type="number" id="occurrencesCount" name="occurrences_count"
+                           min="1" max="100" placeholder="Ex: 8 sessões" value="8"
+                           onchange="updateRecurrencePreview()"
+                           style="width: 100%; display: none;">
                 </div>
 
                 <!-- Preview -->
@@ -481,6 +516,9 @@ async function fetchPatientTherapies() {
             option.value = item.therapy_id;
             // Mostra o limite de sessões no dropdown
             option.text = `${item.therapy_name} (Limite: ${item.sessions_per_month}/mês)`;
+            if (item.default_duration_minutes) {
+                option.dataset.duration = item.default_duration_minutes;
+            }
             therapySelect.add(option);
         });
         
@@ -498,6 +536,14 @@ function filterProfessionals() {
     profSelect.innerHTML = '<option value="">Selecione...</option>';
     
     if (!therapyId) return;
+    
+    const selectedOption = therapySelect.options[therapySelect.selectedIndex];
+    if (selectedOption && selectedOption.dataset.duration) {
+        document.getElementById('durationInput').value = selectedOption.dataset.duration;
+        if(typeof updateRecurrencePreview === 'function') {
+            updateRecurrencePreview();
+        }
+    }
     
     // Normalize allowedIds to strings to avoid int vs string comparison issues
     const rawIds = therapyMap[therapyId] || therapyMap[Number(therapyId)] || [];
@@ -596,50 +642,96 @@ function showFeedback(msg, type) {
 }
 
 // ─── Recurrence Toggle ───────────────────────────────────────────
+function toggleRecurrenceTime(dayVal) {
+    const cb = document.querySelector(`input[name="recurrence_days[]"][value="${dayVal}"]`);
+    const timeInput = document.getElementById(`recurrence_time_${dayVal}`);
+    if (cb.checked) {
+        timeInput.style.display = 'block';
+        // Auto-fill time from start_time if empty
+        if (!timeInput.value) {
+            const startRaw = document.getElementById('startTimeInput').value;
+            if (startRaw) {
+                timeInput.value = startRaw.split('T')[1];
+            }
+        }
+    } else {
+        timeInput.style.display = 'none';
+        timeInput.value = '';
+    }
+}
+
+function toggleRecurrenceEndType() {
+    const endType = document.querySelector('input[name="recurrence_end_type"]:checked').value;
+    const dateInput = document.getElementById('repeatEndDate');
+    const countInput = document.getElementById('occurrencesCount');
+    
+    if (endType === 'date') {
+        dateInput.style.display = 'block';
+        countInput.style.display = 'none';
+    } else {
+        dateInput.style.display = 'none';
+        countInput.style.display = 'block';
+    }
+    updateRecurrencePreview();
+}
+
 function toggleRecurrence() {
     const isOn  = document.getElementById('recurrenceToggle').checked;
     const fields = document.getElementById('recurrenceFields');
     fields.style.display = isOn ? 'block' : 'none';
     const btn = document.getElementById('submitBtnText');
     btn.textContent = isOn ? 'Agendar Recorrências' : 'Agendar';
-    if (isOn) updateRecurrencePreview();
+    
+    if (isOn) {
+        // Automatically check the day of the week from start_time
+        setTimeout(() => {
+            const startRaw = document.getElementById('startTimeInput').value;
+            if (startRaw) {
+                const start = new Date(startRaw); // This parses as local if format is 'YYYY-MM-DDTHH:mm'
+                const dayVal = start.getDay();
+                const cb = document.querySelector(`input[name="recurrence_days[]"][value="${dayVal}"]`);
+                if (cb && !cb.checked) {
+                    cb.checked = true;
+                    toggleRecurrenceTime(dayVal);
+                }
+            }
+            updateRecurrencePreview();
+        }, 50);
+    }
 }
 
 function updateRecurrencePreview() {
     const isOn = document.getElementById('recurrenceToggle').checked;
     if (!isOn) return;
 
-    const startRaw = document.getElementById('startTimeInput').value;
-    const endRaw   = document.getElementById('repeatEndDate').value;
-    const preview  = document.getElementById('recurrencePreview');
-    const text     = document.getElementById('previewText');
-
-    if (!startRaw || !endRaw) {
+    const endType = document.querySelector('input[name="recurrence_end_type"]:checked').value;
+    const text = document.getElementById('previewText');
+    const preview = document.getElementById('recurrencePreview');
+    
+    const checkboxes = document.querySelectorAll('.recurrence-day-cb:checked');
+    if (checkboxes.length === 0) {
         preview.style.display = 'none';
         return;
     }
-
-    const start = new Date(startRaw);
-    const end   = new Date(endRaw + 'T23:59:59');
-
-    if (end <= start) {
-        preview.style.display = 'none';
-        return;
+    
+    const daysSelected = Array.from(checkboxes).map(cb => cb.parentNode.textContent.trim()).join(', ');
+    
+    if (endType === 'date') {
+        const endRaw = document.getElementById('repeatEndDate').value;
+        if (!endRaw) {
+            preview.style.display = 'none';
+            return;
+        }
+        text.textContent = `Aos dias: ${daysSelected}, começando da data definida, até ${endRaw.split('-').reverse().join('/')}`;
+    } else {
+        const count = document.getElementById('occurrencesCount').value;
+        if (!count || count <= 0) {
+            preview.style.display = 'none';
+            return;
+        }
+        text.textContent = `Aos dias: ${daysSelected}. Um total de ${count} sessões serão agendadas.`;
     }
-
-    // Count weekly occurrences
-    let count = 0;
-    let cursor = new Date(start);
-    while (cursor <= end) {
-        count++;
-        cursor.setDate(cursor.getDate() + 7);
-    }
-
-    const days = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
-    const dayName = days[start.getDay()];
-    const timeStr = start.toTimeString().slice(0, 5);
-
-    text.textContent = `${count} sessões às ${timeStr} de ${dayName}, até ${endRaw.split('-').reverse().join('/')}`;
+    
     preview.style.display = 'block';
 }
 </script>

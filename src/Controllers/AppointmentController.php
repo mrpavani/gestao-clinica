@@ -340,11 +340,10 @@ class AppointmentController {
     }
 
     /**
-     * Creates recurring appointments on the same weekday from startTime until repeatEndDate.
-     * Each appointment is validated individually (conflicts, session limits).
-     * Returns summary with count of created and skipped sessions.
+     * Creates recurring appointments based on selected weekdays and times.
+     * Can end on a specific date or after a certain number of occurrences.
      */
-    public function createRecurrent($patientId, $professionalId, $therapyId, $startTime, $durationMinutes, $repeatEndDate, $notes = '') {
+    public function createRecurrent($patientId, $professionalId, $therapyId, $startTime, $durationMinutes, $recurrenceDays, $recurrenceTimes, $recurrenceEndType, $repeatEndDate, $occurrencesCount, $notes = '') {
         // Generate a shared UUID to group all recurring sessions
         $groupId = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
             mt_rand(0, 0xffff), mt_rand(0, 0xffff),
@@ -354,31 +353,17 @@ class AppointmentController {
             mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
         );
 
-        $start     = new DateTime($startTime);
-        $endLimit  = new DateTime($repeatEndDate . ' 23:59:59');
-        $timeOfDay = $start->format('H:i:s');
-        $dayOfWeek = (int)$start->format('N'); // 1=Monday ... 7=Sunday
-
-        // Collect all future dates on the same weekday
-        $dates = [];
-        $cursor = clone $start;
-        // Align cursor to next occurrence of the same weekday (start date itself if it matches)
-        // $start already is the right weekday (user picked the date+time)
-        while ($cursor <= $endLimit) {
-            $dates[] = clone $cursor;
-            $cursor->modify('+7 days');
-        }
-
-        if (empty($dates)) {
-            return ['success' => false, 'error' => 'Nenhuma data gerada. Verifique a data final.'];
-        }
+        $startDateDt = new DateTime($startTime);
+        $startDateDt->setTime(0, 0, 0); // Start from the beginning of the day
 
         $created  = 0;
         $skipped  = [];
+        $sessionsCount = 0;
 
-        // Check branch isolation once before the loop (same professional/patient for all dates)
         $branchId = $_SESSION['branch_id'] ?? null;
         $patientController = new PatientController();
+        
+        // Branch Check
         if ($branchId) {
             $profController = new ProfessionalController();
             $prof    = $profController->getById($professionalId);
@@ -391,78 +376,108 @@ class AppointmentController {
             }
         }
 
-        foreach ($dates as $date) {
-            $sessionStart = $date->format('Y-m-d') . ' ' . $timeOfDay;
-            $sessionStartDt = new DateTime($sessionStart);
-            $sessionEnd   = clone $sessionStartDt;
-            $sessionEnd->modify("+$durationMinutes minutes");
-            $startStr = $sessionStartDt->format('Y-m-d H:i:s');
-            $endStr   = $sessionEnd->format('Y-m-d H:i:s');
-            $dateOnly = $sessionStartDt->format('Y-m-d');
-            $month    = $sessionStartDt->format('m');
-            $year     = $sessionStartDt->format('Y');
+        // We'll iterate day by day starting from startDateDt
+        $cursor = clone $startDateDt;
+        
+        // Safety limit to avoid infinite loops if parameters are weird
+        $maxDaysToCheck = 365 * 2; 
+        $daysChecked = 0;
 
-            // Check active package
-            $allowedTherapies = $patientController->getActivePackageTherapies($patientId, $dateOnly);
-            $matched = null;
-            foreach ($allowedTherapies as $at) {
-                if ($at['therapy_id'] == $therapyId) { $matched = $at; break; }
-            }
-            if (!$matched) {
-                $skipped[] = $dateOnly . ' (terapia sem pacote ativo)';
-                continue;
+        while ($daysChecked < $maxDaysToCheck) {
+            $currentDayOfWeek = (int)$cursor->format('w'); // 0 (Sun) to 6 (Sat)
+            
+            if (in_array((string)$currentDayOfWeek, $recurrenceDays)) {
+                $timeOfDay = $recurrenceTimes[$currentDayOfWeek] ?? '00:00';
+                
+                $sessionStartDt = clone $cursor;
+                // Set time
+                $parts = explode(':', $timeOfDay);
+                $sessionStartDt->setTime($parts[0] ?? 0, $parts[1] ?? 0, 0);
+                
+                $sessionEndDt = clone $sessionStartDt;
+                $sessionEndDt->modify("+$durationMinutes minutes");
+
+                $startStr = $sessionStartDt->format('Y-m-d H:i:s');
+                $endStr   = $sessionEndDt->format('Y-m-d H:i:s');
+                $dateOnly = $sessionStartDt->format('Y-m-d');
+                $month    = $sessionStartDt->format('m');
+                $year     = $sessionStartDt->format('Y');
+
+                // Validations
+                $allowedTherapies = $patientController->getActivePackageTherapies($patientId, $dateOnly);
+                $matched = null;
+                foreach ($allowedTherapies as $at) {
+                    if ($at['therapy_id'] == $therapyId) { $matched = $at; break; }
+                }
+
+                $canCreate = true;
+                if (!$matched) {
+                    $skipped[] = $dateOnly . ' (sem pacote ativo)';
+                    $canCreate = false;
+                } else {
+                    // Monthly session limit check
+                    $limit = $matched['sessions_per_month'];
+                    $stmtCount = $this->pdo->prepare("
+                        SELECT COUNT(*) FROM appointments 
+                        WHERE patient_id = ? AND therapy_id = ?
+                        AND MONTH(start_time) = ? AND YEAR(start_time) = ?
+                        AND status IN ('scheduled', 'completed')
+                    ");
+                    $stmtCount->execute([$patientId, $therapyId, $month, $year]);
+                    if ($stmtCount->fetchColumn() >= $limit) {
+                        $skipped[] = $dateOnly . " (limite $limit/mês)";
+                        $canCreate = false;
+                    }
+
+                    // Conflict checks
+                    if ($canCreate && $this->hasConflict($professionalId, $startStr, $endStr)) {
+                        $skipped[] = $dateOnly . ' (conflito profissional)';
+                        $canCreate = false;
+                    }
+                    if ($canCreate && $this->hasPatientConflict($patientId, $startStr, $endStr)) {
+                        $skipped[] = $dateOnly . ' (conflito paciente)';
+                        $canCreate = false;
+                    }
+                }
+
+                if ($canCreate) {
+                    $sql = "INSERT INTO appointments (patient_id, professional_id, therapy_id, start_time, end_time, status, notes, recurrence_group_id) 
+                            VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?)";
+                    $stmt = $this->pdo->prepare($sql);
+                    if ($stmt->execute([$patientId, $professionalId, $therapyId, $startStr, $endStr, $notes, $groupId])) {
+                        $created++;
+                    } else {
+                        $skipped[] = $dateOnly . ' (erro DB)';
+                    }
+                }
+                
+                $sessionsCount++;
             }
 
-            // Check monthly session limit
-            $limit = $matched['sessions_per_month'];
-            $stmtCount = $this->pdo->prepare("
-                SELECT COUNT(*) FROM appointments 
-                WHERE patient_id = ? AND therapy_id = ?
-                AND MONTH(start_time) = ? AND YEAR(start_time) = ?
-                AND status IN ('scheduled', 'completed')
-            ");
-            $stmtCount->execute([$patientId, $therapyId, $month, $year]);
-            if ($stmtCount->fetchColumn() >= $limit) {
-                $skipped[] = $dateOnly . " (limite $limit sessões/mês atingido)";
-                continue;
-            }
-
-            // Check professional conflict
-            if ($this->hasConflict($professionalId, $startStr, $endStr)) {
-                $skipped[] = $dateOnly . ' (conflito de horário do profissional)';
-                continue;
-            }
-
-            // Check patient conflict
-            if ($this->hasPatientConflict($patientId, $startStr, $endStr)) {
-                $skipped[] = $dateOnly . ' (conflito de horário do paciente)';
-                continue;
-            }
-
-            // Insert with recurrence_group_id
-            $sql = "INSERT INTO appointments (patient_id, professional_id, therapy_id, start_time, end_time, status, notes, recurrence_group_id) 
-                    VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?)";
-            $stmt = $this->pdo->prepare($sql);
-            if ($stmt->execute([$patientId, $professionalId, $therapyId, $startStr, $endStr, $notes, $groupId])) {
-                $created++;
+            // Termination conditions
+            if ($recurrenceEndType === 'occurrences') {
+                if ($sessionsCount >= $occurrencesCount) break;
             } else {
-                $skipped[] = $dateOnly . ' (erro no banco)';
+                // By date
+                if ($cursor->format('Y-m-d') >= $repeatEndDate) break;
             }
+
+            $cursor->modify('+1 day');
+            $daysChecked++;
         }
 
-        $total = count($dates);
         if ($created === 0) {
             return [
                 'success' => false,
-                'error'   => 'Nenhuma sessão pôde ser criada. Motivos: ' . implode('; ', $skipped)
+                'error'   => 'Nenhuma sessão pôde ser criada. Motivos: ' . implode('; ', array_unique($skipped))
             ];
         }
 
-        $msg = "$created de $total sessões agendadas com sucesso.";
+        $msg = "$created sessões agendadas com sucesso.";
         if (!empty($skipped)) {
-            $msg .= ' Sessões não criadas: ' . implode('; ', $skipped);
+            $msg .= ' Algumas datas foram ignoradas: ' . implode('; ', array_unique($skipped));
         }
-        return ['success' => true, 'message' => $msg, 'created' => $created, 'skipped' => $skipped];
+        return ['success' => true, 'message' => $msg, 'created' => $created];
     }
 }
 
